@@ -108,3 +108,16 @@ silence:
       issue_type: "log_error"
       title_contains: ["cloudflared", "WRN"]
       action: "suppress"         # suppress = 完全抑制，不记录
+
+# ===== Web UI 权限 =====
+webui:
+  auth:
+    enabled: false              # 启用登录验证
+    secret_key: "ops-agent-secret-key-change-me"
+    users:
+      admin:
+        password: "admin123"    # 修改为强密码
+        role: "admin"           # admin = 全部权限, viewer = 只读
+      guest:
+        password: "guest"
+        role: "viewer"

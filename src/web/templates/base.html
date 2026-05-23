@@ -223,6 +223,12 @@
         <div class="server-info">
             <div class="name">{{ server_name }}</div>
             <div>OpsAgent Web UI</div>
+            {% if session.get('user') %}
+            <div style="margin-top: 6px; font-size: 11px;">
+                👤 {{ session['user'] }} ({{ session.get('role', 'viewer') }})
+                · <a href="/logout" style="color: var(--danger); text-decoration: none;">退出</a>
+            </div>
+            {% endif %}
         </div>
         <div class="theme-switcher">
             <select id="themeSelect" onchange="switchTheme(this.value)">

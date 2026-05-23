@@ -7,10 +7,11 @@ import sqlite3
 import time
 from datetime import datetime
 from pathlib import Path
+from functools import wraps
 
 import psutil
 import yaml
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, jsonify, redirect, render_template, request, url_for, session
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,61 @@ def create_app() -> Flask:
         template_folder=str(Path(__file__).parent / "templates"),
         static_folder=str(Path(__file__).parent / "static"),
     )
-    app.config["SECRET_KEY"] = "ops-agent-web-ui"
+
+    # 加载配置
+    cfg = _load_config()
+    auth_cfg = cfg.get("webui", {}).get("auth", {})
+    app.config["SECRET_KEY"] = auth_cfg.get("secret_key", "ops-agent-secret")
+    app.config["AUTH_ENABLED"] = auth_cfg.get("enabled", False)
+    app.config["USERS"] = auth_cfg.get("users", {})
+
+    # 登录检查装饰器
+    def login_required(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if not app.config["AUTH_ENABLED"]:
+                return f(*args, **kwargs)
+            if "user" not in session:
+                return redirect(url_for("login", next=request.url))
+            return f(*args, **kwargs)
+        return decorated
+
+    def admin_required(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if not app.config["AUTH_ENABLED"]:
+                return f(*args, **kwargs)
+            if "user" not in session:
+                return redirect(url_for("login", next=request.url))
+            users = app.config["USERS"]
+            user = session["user"]
+            if users.get(user, {}).get("role") != "admin":
+                return jsonify({"error": "forbidden", "message": "需要管理员权限"}), 403
+            return f(*args, **kwargs)
+        return decorated
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        if not app.config["AUTH_ENABLED"]:
+            return redirect(url_for("index"))
+        error = None
+        if request.method == "POST":
+            username = request.form.get("username", "")
+            password = request.form.get("password", "")
+            users = app.config["USERS"]
+            if username in users and users[username]["password"] == password:
+                session["user"] = username
+                session["role"] = users[username]["role"]
+                next_url = request.args.get("next", url_for("index"))
+                return redirect(next_url)
+            error = "用户名或密码错误"
+        return render_template("login.html", error=error)
+
+    @app.route("/logout")
+    def logout():
+        session.pop("user", None)
+        session.pop("role", None)
+        return redirect(url_for("login"))
 
     @app.route("/")
     def index():
