@@ -1,0 +1,164 @@
+/* ========== 主题变量 ========== */
+
+/* 默认暗色 */
+:root,
+[data-theme="dark"] {
+    --bg-primary: #0f1117;
+    --bg-secondary: #161822;
+    --bg-tertiary: #1e2030;
+    --border: #2a2d3a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #8b8fa3;
+    --text-muted: #6b7280;
+    --accent: #6c63ff;
+    --accent-hover: #7c74ff;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+    --sidebar-bg: #161822;
+    --sidebar-border: #2a2d3a;
+    --card-bg: #161822;
+    --card-hover: #1e2030;
+    --badge-success-bg: rgba(16,185,129,0.15);
+    --badge-warning-bg: rgba(245,158,11,0.15);
+    --badge-danger-bg: rgba(239,68,68,0.15);
+    --badge-info-bg: rgba(99,102,241,0.15);
+    --input-bg: #1e2030;
+    --shadow: rgba(0,0,0,0.3);
+}
+
+/* 亮色 */
+[data-theme="light"] {
+    --bg-primary: #f5f7fa;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f0f2f5;
+    --border: #e2e8f0;
+    --text-primary: #1a202c;
+    --text-secondary: #4a5568;
+    --text-muted: #718096;
+    --accent: #5a52d5;
+    --accent-hover: #4c46c4;
+    --success: #059669;
+    --warning: #d97706;
+    --danger: #dc2626;
+    --info: #2563eb;
+    --sidebar-bg: #1a202c;
+    --sidebar-border: #2d3748;
+    --card-bg: #ffffff;
+    --card-hover: #f7fafc;
+    --badge-success-bg: rgba(5,150,105,0.1);
+    --badge-warning-bg: rgba(217,119,6,0.1);
+    --badge-danger-bg: rgba(220,38,38,0.1);
+    --badge-info-bg: rgba(37,99,235,0.1);
+    --input-bg: #f0f2f5;
+    --shadow: rgba(0,0,0,0.08);
+}
+
+/* 赛博朋克 */
+[data-theme="cyberpunk"] {
+    --bg-primary: #0a0a1a;
+    --bg-secondary: #0f0f2a;
+    --bg-tertiary: #141432;
+    --border: #1a1a40;
+    --text-primary: #e0e0ff;
+    --text-secondary: #a0a0cc;
+    --text-muted: #6666aa;
+    --accent: #ff00ff;
+    --accent-hover: #ff33ff;
+    --success: #00ff88;
+    --warning: #ffff00;
+    --danger: #ff0044;
+    --info: #00ccff;
+    --sidebar-bg: #0a0a1e;
+    --sidebar-border: #1a1a40;
+    --card-bg: #0f0f2a;
+    --card-hover: #14143a;
+    --badge-success-bg: rgba(0,255,136,0.12);
+    --badge-warning-bg: rgba(255,255,0,0.12);
+    --badge-danger-bg: rgba(255,0,68,0.12);
+    --badge-info-bg: rgba(0,204,255,0.12);
+    --input-bg: #141432;
+    --shadow: rgba(255,0,255,0.1);
+}
+
+/* 海洋蓝 */
+[data-theme="ocean"] {
+    --bg-primary: #0b1628;
+    --bg-secondary: #0f1d32;
+    --bg-tertiary: #142640;
+    --border: #1e3a5f;
+    --text-primary: #d0e8ff;
+    --text-secondary: #7eb3e0;
+    --text-muted: #4a80b0;
+    --accent: #00b4d8;
+    --accent-hover: #00c8ee;
+    --success: #2dd4a0;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --info: #38bdf8;
+    --sidebar-bg: #0a1220;
+    --sidebar-border: #1e3a5f;
+    --card-bg: #0f1d32;
+    --card-hover: #142640;
+    --badge-success-bg: rgba(45,212,160,0.12);
+    --badge-warning-bg: rgba(251,191,36,0.12);
+    --badge-danger-bg: rgba(248,113,113,0.12);
+    --badge-info-bg: rgba(56,189,248,0.12);
+    --input-bg: #142640;
+    --shadow: rgba(0,180,216,0.1);
+}
+
+/* 森林绿 */
+[data-theme="forest"] {
+    --bg-primary: #0a1a0a;
+    --bg-secondary: #0f2210;
+    --bg-tertiary: #142b16;
+    --border: #1e4020;
+    --text-primary: #d0f0d0;
+    --text-secondary: #7ec080;
+    --text-muted: #4a8a50;
+    --accent: #4ade80;
+    --accent-hover: #5ae890;
+    --success: #22c55e;
+    --warning: #eab308;
+    --danger: #ef4444;
+    --info: #06b6d4;
+    --sidebar-bg: #081408;
+    --sidebar-border: #1e4020;
+    --card-bg: #0f2210;
+    --card-hover: #142b16;
+    --badge-success-bg: rgba(34,197,94,0.12);
+    --badge-warning-bg: rgba(234,179,8,0.12);
+    --badge-danger-bg: rgba(239,68,68,0.12);
+    --badge-info-bg: rgba(6,182,212,0.12);
+    --input-bg: #142b16;
+    --shadow: rgba(74,222,128,0.1);
+}
+
+/* 樱花粉 */
+[data-theme="sakura"] {
+    --bg-primary: #1a0f14;
+    --bg-secondary: #22131c;
+    --bg-tertiary: #2d1a26;
+    --border: #4a2a3a;
+    --text-primary: #f0d0e0;
+    --text-secondary: #c08aa0;
+    --text-muted: #8a5a70;
+    --accent: #f472b6;
+    --accent-hover: #f687c0;
+    --success: #a3e635;
+    --warning: #fbbf24;
+    --danger: #fb7185;
+    --info: #c084fc;
+    --sidebar-bg: #180e12;
+    --sidebar-border: #4a2a3a;
+    --card-bg: #22131c;
+    --card-hover: #2d1a26;
+    --badge-success-bg: rgba(163,230,53,0.12);
+    --badge-warning-bg: rgba(251,191,36,0.12);
+    --badge-danger-bg: rgba(251,113,133,0.12);
+    --badge-info-bg: rgba(192,132,252,0.12);
+    --input-bg: #2d1a26;
+    --shadow: rgba(244,114,182,0.1);
+}

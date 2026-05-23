@@ -1,43 +1,57 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}OpsAgent{% endblock %}</title>
+    <link rel="stylesheet" href="/static/themes.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-            background: #0f1117; color: #e0e0e0; line-height: 1.6;
+            background: var(--bg-primary); color: var(--text-primary); line-height: 1.6;
+            transition: background 0.3s, color 0.3s;
         }
         /* 侧边栏 */
         .sidebar {
             position: fixed; left: 0; top: 0; bottom: 0; width: 220px;
-            background: #161822; border-right: 1px solid #2a2d3a;
-            padding: 20px 0; z-index: 100;
+            background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border);
+            padding: 20px 0; z-index: 100; transition: background 0.3s, border 0.3s;
         }
         .sidebar .logo {
-            padding: 0 20px 20px; border-bottom: 1px solid #2a2d3a;
+            padding: 0 20px 20px; border-bottom: 1px solid var(--sidebar-border);
             font-size: 18px; font-weight: 700; color: #fff;
         }
-        .sidebar .logo span { color: #6c63ff; }
+        .sidebar .logo span { color: var(--accent); }
         .sidebar nav { padding: 16px 0; }
         .sidebar nav a {
             display: flex; align-items: center; gap: 10px;
-            padding: 10px 20px; color: #8b8fa3; text-decoration: none;
+            padding: 10px 20px; color: var(--text-secondary); text-decoration: none;
             font-size: 14px; transition: all 0.2s;
         }
         .sidebar nav a:hover, .sidebar nav a.active {
-            color: #fff; background: #1e2030;
-            border-right: 3px solid #6c63ff;
+            color: #fff; background: var(--bg-tertiary);
+            border-right: 3px solid var(--accent);
         }
         .sidebar nav a .icon { font-size: 18px; width: 24px; text-align: center; }
         .sidebar .server-info {
-            position: absolute; bottom: 20px; left: 20px; right: 20px;
-            padding: 12px; background: #1e2030; border-radius: 8px;
-            font-size: 12px; color: #6b7280;
+            position: absolute; bottom: 60px; left: 20px; right: 20px;
+            padding: 12px; background: var(--bg-tertiary); border-radius: 8px;
+            font-size: 12px; color: var(--text-muted);
         }
-        .sidebar .server-info .name { color: #6c63ff; font-weight: 600; }
+        .sidebar .server-info .name { color: var(--accent); font-weight: 600; }
+
+        /* 主题切换器 */
+        .theme-switcher {
+            position: absolute; bottom: 16px; left: 20px; right: 20px;
+        }
+        .theme-switcher select {
+            width: 100%; padding: 6px 8px; border-radius: 6px;
+            background: var(--bg-tertiary); color: var(--text-primary);
+            border: 1px solid var(--border); font-size: 12px;
+            cursor: pointer; outline: none;
+        }
+        .theme-switcher select:focus { border-color: var(--accent); }
 
         /* 主内容 */
         .main { margin-left: 220px; padding: 24px; min-height: 100vh; }
@@ -45,16 +59,17 @@
             display: flex; justify-content: space-between; align-items: center;
             margin-bottom: 24px;
         }
-        .page-header h1 { font-size: 22px; color: #fff; }
-        .page-header .time { font-size: 13px; color: #6b7280; }
+        .page-header h1 { font-size: 22px; color: var(--text-primary); }
+        .page-header .time { font-size: 13px; color: var(--text-muted); }
 
         /* 卡片 */
         .card {
-            background: #161822; border: 1px solid #2a2d3a;
+            background: var(--card-bg); border: 1px solid var(--border);
             border-radius: 12px; padding: 20px; margin-bottom: 16px;
+            transition: background 0.3s, border 0.3s;
         }
         .card h2 {
-            font-size: 15px; color: #8b8fa3; margin-bottom: 16px;
+            font-size: 15px; color: var(--text-secondary); margin-bottom: 16px;
             text-transform: uppercase; letter-spacing: 0.5px;
         }
 
@@ -64,14 +79,14 @@
             gap: 16px; margin-bottom: 24px;
         }
         .metric-card {
-            background: #161822; border: 1px solid #2a2d3a;
-            border-radius: 12px; padding: 20px;
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px; transition: background 0.3s, border 0.3s;
         }
-        .metric-card .label { font-size: 12px; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; }
+        .metric-card .label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
         .metric-card .value { font-size: 28px; font-weight: 700; }
-        .metric-card .sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+        .metric-card .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
         .metric-card .bar {
-            height: 4px; background: #2a2d3a; border-radius: 2px; margin-top: 12px;
+            height: 4px; background: var(--border); border-radius: 2px; margin-top: 12px;
             overflow: hidden;
         }
         .metric-card .bar-fill {
@@ -79,41 +94,41 @@
         }
 
         /* 颜色 */
-        .color-normal { color: #10b981; }
-        .color-warning { color: #f59e0b; }
-        .color-critical { color: #ef4444; }
-        .bg-normal { background: #10b981; }
-        .bg-warning { background: #f59e0b; }
-        .bg-critical { background: #ef4444; }
+        .color-normal { color: var(--success); }
+        .color-warning { color: var(--warning); }
+        .color-critical { color: var(--danger); }
+        .bg-normal { background: var(--success); }
+        .bg-warning { background: var(--warning); }
+        .bg-critical { background: var(--danger); }
 
         /* 表格 */
         table { width: 100%; border-collapse: collapse; }
         th, td {
-            padding: 10px 14px; text-align: left; border-bottom: 1px solid #2a2d3a;
+            padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border);
             font-size: 13px;
         }
-        th { color: #6b7280; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-        tr:hover { background: #1e2030; }
+        th { color: var(--text-muted); font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        tr:hover { background: var(--card-hover); }
 
         /* 标签 */
         .badge {
             display: inline-block; padding: 2px 10px; border-radius: 12px;
             font-size: 11px; font-weight: 600;
         }
-        .badge-critical { background: rgba(239,68,68,0.15); color: #ef4444; }
-        .badge-warning { background: rgba(245,158,11,0.15); color: #f59e0b; }
-        .badge-info { background: rgba(99,102,241,0.15); color: #6c63ff; }
-        .badge-success { background: rgba(16,185,129,0.15); color: #10b981; }
-        .badge-running { background: rgba(16,185,129,0.15); color: #10b981; }
-        .badge-stopped { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .badge-critical { background: var(--badge-danger-bg); color: var(--danger); }
+        .badge-warning { background: var(--badge-warning-bg); color: var(--warning); }
+        .badge-info { background: var(--badge-info-bg); color: var(--accent); }
+        .badge-success { background: var(--badge-success-bg); color: var(--success); }
+        .badge-running { background: var(--badge-success-bg); color: var(--success); }
+        .badge-stopped { background: var(--badge-danger-bg); color: var(--danger); }
 
         /* 状态指示 */
         .status-dot {
             display: inline-block; width: 8px; height: 8px;
             border-radius: 50%; margin-right: 6px;
         }
-        .status-dot.on { background: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.5); }
-        .status-dot.off { background: #ef4444; }
+        .status-dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .status-dot.off { background: var(--danger); }
 
         /* 分页 */
         .pagination {
@@ -121,27 +136,27 @@
         }
         .pagination a, .pagination span {
             padding: 6px 12px; border-radius: 6px; font-size: 13px;
-            text-decoration: none; color: #8b8fa3; background: #1e2030;
+            text-decoration: none; color: var(--text-secondary); background: var(--bg-tertiary);
         }
-        .pagination a:hover { background: #2a2d3a; color: #fff; }
-        .pagination .current { background: #6c63ff; color: #fff; }
+        .pagination a:hover { background: var(--border); color: var(--text-primary); }
+        .pagination .current { background: var(--accent); color: #fff; }
 
         /* 报告列表 */
         .report-item {
             display: flex; justify-content: space-between; align-items: center;
-            padding: 12px 16px; border-bottom: 1px solid #2a2d3a;
+            padding: 12px 16px; border-bottom: 1px solid var(--border);
         }
-        .report-item:hover { background: #1e2030; }
-        .report-item a { color: #6c63ff; text-decoration: none; font-weight: 500; }
+        .report-item:hover { background: var(--card-hover); }
+        .report-item a { color: var(--accent); text-decoration: none; font-weight: 500; }
         .report-item a:hover { text-decoration: underline; }
-        .report-item .meta { font-size: 12px; color: #6b7280; }
+        .report-item .meta { font-size: 12px; color: var(--text-muted); }
 
         /* 配置展示 */
         .config-block {
-            background: #1e2030; border-radius: 8px; padding: 16px;
+            background: var(--bg-tertiary); border-radius: 8px; padding: 16px;
             font-family: "JetBrains Mono", "Fira Code", monospace;
             font-size: 13px; line-height: 1.8; white-space: pre-wrap;
-            color: #a0aec0; overflow-x: auto;
+            color: var(--text-secondary); overflow-x: auto;
         }
 
         /* 统计卡片 */
@@ -150,16 +165,28 @@
             gap: 12px;
         }
         .stat-item {
-            text-align: center; padding: 16px; background: #1e2030; border-radius: 8px;
+            text-align: center; padding: 16px; background: var(--bg-tertiary); border-radius: 8px;
         }
-        .stat-item .num { font-size: 24px; font-weight: 700; color: #fff; }
-        .stat-item .desc { font-size: 11px; color: #6b7280; margin-top: 4px; }
+        .stat-item .num { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+        .stat-item .desc { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 
         /* 响应式 */
         @media (max-width: 768px) {
             .sidebar { display: none; }
             .main { margin-left: 0; }
             .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        /* 赛博朋克特殊效果 */
+        [data-theme="cyberpunk"] .sidebar .logo span {
+            text-shadow: 0 0 10px rgba(255,0,255,0.5);
+        }
+        [data-theme="cyberpunk"] .status-dot.on {
+            box-shadow: 0 0 8px var(--success), 0 0 16px var(--success);
+        }
+        [data-theme="cyberpunk"] .metric-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(255,0,255,0.15);
         }
     </style>
 </head>
@@ -184,11 +211,37 @@
             <div class="name">{{ server_name }}</div>
             <div>OpsAgent Web UI</div>
         </div>
+        <div class="theme-switcher">
+            <select id="themeSelect" onchange="switchTheme(this.value)">
+                <option value="dark">🌙 暗色</option>
+                <option value="light">☀️ 亮色</option>
+                <option value="cyberpunk">💜 赛博朋克</option>
+                <option value="ocean">🌊 海洋蓝</option>
+                <option value="forest">🌲 森林绿</option>
+                <option value="sakura">🌸 樱花粉</option>
+            </select>
+        </div>
     </div>
 
     <div class="main">
         {% block content %}{% endblock %}
     </div>
+
+    <script>
+        // 主题切换
+        function switchTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('opsagent-theme', theme);
+        }
+
+        // 加载保存的主题
+        (function() {
+            const saved = localStorage.getItem('opsagent-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            const select = document.getElementById('themeSelect');
+            if (select) select.value = saved;
+        })();
+    </script>
 
     {% block scripts %}{% endblock %}
 </body>
