@@ -35,6 +35,19 @@ class FeishuNotifier:
         self.webhook_url = webhook_url
         self.secret = secret
 
+    @staticmethod
+    def _get_server_ip() -> str:
+        """获取服务器 IP"""
+        try:
+            import socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "localhost"
+
     def send_alert(self, issues: List[Issue], server_name: str = "unknown", llm_analysis: Optional[dict] = None) -> bool:
         """发送告警消息（飞书富文本卡片）
 
@@ -141,6 +154,30 @@ class FeishuNotifier:
         # 分隔线和时间戳
         elements.extend([
             {"tag": "hr"},
+            {
+                "tag": "action",
+                "actions": [
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "✅ 已知晓"},
+                        "type": "primary",
+                        "value": {"action": "ack", "server": server_name},
+                    },
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "🔇 静默1小时"},
+                        "type": "default",
+                        "value": {"action": "mute_1h", "server": server_name},
+                    },
+                    {
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": "📋 查看报告"},
+                        "type": "default",
+                        "value": {"action": "view_report", "server": server_name},
+                        "url": f"http://{self._get_server_ip()}:8080/reports",
+                    },
+                ],
+            },
             {
                 "tag": "note",
                 "elements": [
