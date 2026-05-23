@@ -64,6 +64,11 @@
     <div id="connsList" style="color: var(--text-muted); font-size: 13px;">加载中...</div>
 </div>
 
+<div class="card">
+    <h2>⚡ 进程资源占用 (Top 15)</h2>
+    <div id="procList" style="color: var(--text-muted); font-size: 13px;">加载中...</div>
+</div>
+
 <script>
 async function loadHealth() {
     try {
@@ -133,5 +138,23 @@ async function loadNetwork() {
     }
 }
 loadNetwork();
+
+// 进程监控
+async function loadProcesses() {
+    try {
+        const res = await fetch('/api/processes?limit=15');
+        const data = await res.json();
+        let html = '<table style="width:100%"><thead><tr><th>PID</th><th>进程</th><th>用户</th><th>CPU%</th><th>内存MB</th></tr></thead><tbody>';
+        data.forEach(p => {
+            const cpuColor = p.cpu > 50 ? 'var(--danger)' : p.cpu > 20 ? 'var(--warning)' : 'var(--text-primary)';
+            html += `<tr><td>${p.pid}</td><td>${p.name}</td><td style="font-size:12px;color:var(--text-muted)">${p.user}</td><td style="color:${cpuColor};font-weight:600">${p.cpu}%</td><td>${p.mem_mb}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('procList').innerHTML = html;
+    } catch (e) {
+        document.getElementById('procList').innerHTML = '加载失败';
+    }
+}
+loadProcesses();
 </script>
 {% endblock %}

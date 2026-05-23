@@ -200,6 +200,28 @@ def create_app() -> Flask:
             } for c in conns],
         })
 
+    @app.route("/api/processes")
+    def api_processes():
+        """API: 进程资源占用 Top N"""
+        n = request.args.get("limit", 15, type=int)
+        procs = []
+        for p in psutil.process_iter(['pid', 'name', 'username']):
+            try:
+                info = p.info
+                cpu = p.cpu_percent(interval=0)
+                mem = p.memory_info()
+                procs.append({
+                    "pid": info["pid"],
+                    "name": info["name"],
+                    "user": info["username"] or "-",
+                    "cpu": cpu,
+                    "mem_mb": round(mem.rss / 1024 / 1024, 1),
+                })
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        procs.sort(key=lambda x: x["cpu"], reverse=True)
+        return jsonify(procs[:n])
+
     @app.route("/api/health")
     def api_health():
         """API: OpsAgent 自身健康状态"""
