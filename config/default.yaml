@@ -74,6 +74,17 @@ notifier:
     enabled: true
     window_seconds: 60  # 合并时间窗口
 
+  # 邮件通知（备用通道）
+  email:
+    enabled: false
+    smtp_host: "smtp.qq.com"
+    smtp_port: 465
+    username: ""
+    password: ""         # 授权码
+    from_addr: ""
+    to_addrs: []
+    use_tls: false
+
 # ===== LLM 智能分析 =====
 llm:
   enabled: false

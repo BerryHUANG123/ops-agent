@@ -115,6 +115,27 @@ class OpsAgent:
         else:
             logger.info("飞书告警推送已禁用")
 
+        # 初始化邮件通知
+        self.email_notifier: Optional[object] = None
+        email_cfg = notifier_cfg.get("email", {})
+        if email_cfg.get("enabled", False):
+            try:
+                from src.notifiers.email_notifier import EmailNotifier
+                self.email_notifier = EmailNotifier(
+                    smtp_host=email_cfg.get("smtp_host", ""),
+                    smtp_port=email_cfg.get("smtp_port", 465),
+                    username=email_cfg.get("username", ""),
+                    password=email_cfg.get("password", ""),
+                    from_addr=email_cfg.get("from_addr", ""),
+                    to_addrs=email_cfg.get("to_addrs", []),
+                    use_tls=email_cfg.get("use_tls", False),
+                )
+                logger.info("邮件告警通知已启用")
+            except Exception as e:
+                logger.warning("邮件通知初始化失败: %s", e)
+        else:
+            logger.info("邮件告警通知已禁用")
+
         # 初始化定时报表调度器
         report_cfg = self.config.get("report", {})
         schedule_str = report_cfg.get("schedule", "") or None
@@ -442,6 +463,12 @@ class OpsAgent:
                     self.notifier.send_alert(non_info_issues, server_name, llm_analysis=llm_analysis)
                 except Exception as e:
                     logger.error("飞书告警推送失败: %s", e)
+            # 邮件通知
+            if self.email_notifier is not None:
+                try:
+                    self.email_notifier.send_alert(non_info_issues, server_name)
+                except Exception as e:
+                    logger.error("邮件告警推送失败: %s", e)
             # 处置完成后推送处置结果
             if actions:
                 try:
