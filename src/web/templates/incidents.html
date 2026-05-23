@@ -105,6 +105,9 @@ async function resolveOne(id) {
     if (data.ok) {
         document.getElementById('status-' + id).innerHTML = '<span class="badge badge-success">已解决</span>';
         document.getElementById('btn-' + id).style.display = 'none';
+        showToast('事件已标记为已解决', 'success');
+    } else {
+        showToast(data.message || '操作失败', 'error');
     }
 }
 
@@ -116,7 +119,8 @@ async function resolveAll() {
     });
     const data = await res.json();
     if (data.ok) {
-        location.reload();
+        showToast('已解决 ' + data.resolved + ' 个事件', 'success');
+        setTimeout(() => location.reload(), 500);
     }
 }
 
@@ -130,6 +134,7 @@ async function deleteOne(id) {
     const data = await res.json();
     if (data.ok) {
         document.getElementById('row-' + id).remove();
+        showToast('事件已删除', 'success');
     }
 }
 </script>
