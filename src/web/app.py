@@ -37,6 +37,9 @@ def create_app() -> Flask:
     app.config["AUTH_ENABLED"] = auth_cfg.get("enabled", False)
     app.config["USERS"] = auth_cfg.get("users", {})
 
+    # 登录频率限制
+    login_attempts = {}  # ip -> {count, blocked_until}
+
     # 登录检查装饰器：viewer 角色可直接访问，admin 操作需登录
     def login_required(f):
         @wraps(f)
@@ -67,6 +70,19 @@ def create_app() -> Flask:
         if not app.config["AUTH_ENABLED"]:
             return redirect(url_for("index"))
         error = None
+        ip = request.remote_addr
+        now = time.time()
+
+        # 检查频率限制
+        if ip in login_attempts:
+            attempt = login_attempts[ip]
+            if attempt.get("blocked_until", 0) > now:
+                remain = int(attempt["blocked_until"] - now)
+                error = f"登录失败次数过多，请 {remain} 秒后再试"
+                return render_template("login.html", error=error)
+            elif attempt.get("blocked_until", 0) and attempt["blocked_until"] <= now:
+                login_attempts.pop(ip, None)
+
         if request.method == "POST":
             username = request.form.get("username", "")
             password = request.form.get("password", "")
@@ -74,9 +90,20 @@ def create_app() -> Flask:
             if username in users and users[username]["password"] == password:
                 session["user"] = username
                 session["role"] = users[username]["role"]
+                login_attempts.pop(ip, None)  # 登录成功清除计数
                 next_url = request.args.get("next", url_for("index"))
                 return redirect(next_url)
-            error = "用户名或密码错误"
+
+            # 登录失败，记录次数
+            if ip not in login_attempts:
+                login_attempts[ip] = {"count": 0}
+            login_attempts[ip]["count"] += 1
+            count = login_attempts[ip]["count"]
+            if count >= 5:
+                login_attempts[ip]["blocked_until"] = now + 300  # 5次失败锁定5分钟
+                error = "登录失败 5 次，已锁定 5 分钟"
+            else:
+                error = f"用户名或密码错误（{5 - count} 次机会剩余）"
         return render_template("login.html", error=error)
 
     @app.route("/logout")
