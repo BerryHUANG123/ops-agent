@@ -265,10 +265,13 @@ def create_app() -> Flask:
     def config():
         """配置查看"""
         cfg = _load_config()
+        # 脱敏处理：隐藏敏感字段
+        safe_cfg = _mask_sensitive(cfg)
+        config_yaml = yaml.dump(safe_cfg, allow_unicode=True, default_flow_style=False)
         return render_template(
             "config.html",
-            config=cfg,
-            config_yaml=yaml.dump(cfg, allow_unicode=True, default_flow_style=False),
+            config=safe_cfg,
+            config_yaml=config_yaml,
             server_name=_get_server_name(),
         )
 
@@ -472,6 +475,22 @@ def _get_server_name() -> str:
     """获取服务器名称"""
     cfg = _load_config()
     return cfg.get("server", {}).get("name", "unknown")
+
+
+def _mask_sensitive(obj, depth=0):
+    """递归脱敏：隐藏密码、密钥等敏感字段"""
+    sensitive_keys = {"password", "secret", "api_key", "webhook_url", "secret_key", "token"}
+    if isinstance(obj, dict):
+        masked = {}
+        for k, v in obj.items():
+            if k.lower() in sensitive_keys and isinstance(v, str) and v:
+                masked[k] = "***" + v[-3:] if len(v) > 3 else "****"
+            else:
+                masked[k] = _mask_sensitive(v, depth + 1)
+        return masked
+    elif isinstance(obj, list):
+        return [_mask_sensitive(item, depth + 1) for item in obj]
+    return obj
 
 
 def _load_config() -> dict:
