@@ -112,7 +112,7 @@ silence:
 # ===== Web UI 权限 =====
 webui:
   auth:
-    enabled: false              # 启用登录验证
+    enabled: true              # 启用登录验证
     secret_key: "ops-agent-secret-key-change-me"
     users:
       admin:

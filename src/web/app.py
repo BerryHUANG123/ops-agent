@@ -86,6 +86,7 @@ def create_app() -> Flask:
         return redirect(url_for("login"))
 
     @app.route("/")
+    @login_required
     def index():
         """仪表盘首页"""
         metrics = _get_system_metrics()
@@ -104,6 +105,7 @@ def create_app() -> Flask:
         )
 
     @app.route("/incidents")
+    @login_required
     def incidents():
         """告警列表"""
         page = request.args.get("page", 1, type=int)
@@ -168,6 +170,7 @@ def create_app() -> Flask:
         return jsonify({"ok": True, "deleted": changed})
 
     @app.route("/reports")
+    @login_required
     def reports():
         """巡检报告列表"""
         report_files = _get_report_files()
@@ -186,11 +189,13 @@ def create_app() -> Flask:
         return report_path.read_text(encoding="utf-8")
 
     @app.route("/health")
+    @login_required
     def health_page():
         """健康状态页面"""
         return render_template("health.html", server_name=_get_server_name())
 
     @app.route("/audit")
+    @login_required
     def audit():
         """审计日志"""
         page = request.args.get("page", 1, type=int)
@@ -226,6 +231,7 @@ def create_app() -> Flask:
                                server_name=_get_server_name())
 
     @app.route("/config")
+    @login_required
     def config():
         """配置查看"""
         cfg = _load_config()
