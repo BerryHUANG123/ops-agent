@@ -119,6 +119,62 @@
     </div>
 </div>
 
+<!-- 趋势图 -->
+<div class="card" style="margin-bottom: 24px;">
+    <h2>📈 24小时趋势</h2>
+    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <button onclick="loadChart(1)" class="chart-btn" id="btn-1h">1小时</button>
+        <button onclick="loadChart(6)" class="chart-btn" id="btn-6h">6小时</button>
+        <button onclick="loadChart(24)" class="chart-btn active" id="btn-24h">24小时</button>
+    </div>
+    <canvas id="trendChart" height="80"></canvas>
+</div>
+
+<style>
+    .chart-btn {
+        background: var(--bg-tertiary); color: var(--text-secondary); border: 1px solid var(--border);
+        padding: 4px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;
+    }
+    .chart-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+let chart = null;
+async function loadChart(hours) {
+    document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('btn-' + hours + 'h').classList.add('active');
+    const res = await fetch('/api/metrics/history?hours=' + hours);
+    const data = await res.json();
+    if (!data.length) return;
+    const labels = data.map(d => {
+        const t = new Date(d.timestamp * 1000);
+        return t.getHours().toString().padStart(2,'0') + ':' + t.getMinutes().toString().padStart(2,'0');
+    });
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('trendChart'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                { label: 'CPU %', data: data.map(d => d.cpu_percent), borderColor: '#6c63ff', backgroundColor: 'rgba(108,99,255,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+                { label: '内存 %', data: data.map(d => d.memory_percent), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+                { label: '磁盘 %', data: data.map(d => d.disk_percent), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.1)', fill: true, tension: 0.3, pointRadius: 0 },
+            ]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#6b7280' } },
+                x: { grid: { color: 'rgba(255,255,255,0.03)' }, ticks: { color: '#6b7280', maxTicksLimit: 12 } }
+            },
+            plugins: { legend: { labels: { color: '#8b8fa3' } } }
+        }
+    });
+}
+loadChart(24);
+</script>
+
 <!-- 最近告警 -->
 <div class="card">
     <h2>🚨 最近告警</h2>

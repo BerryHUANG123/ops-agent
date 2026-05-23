@@ -242,6 +242,21 @@ class OpsAgent:
             max_history = 1440  # 24 小时（每分钟一个点）
             if len(self._metrics_history) > max_history:
                 self._metrics_history = self._metrics_history[-max_history:]
+            # 持久化指标到数据库
+            try:
+                self.memory.save_metrics({
+                    "timestamp": time.time(),
+                    "cpu_percent": metrics.cpu_percent,
+                    "memory_percent": metrics.memory_percent,
+                    "disk_percent": metrics.disk_percent,
+                    "load_1m": metrics.load_1m,
+                    "load_5m": metrics.load_5m,
+                    "load_15m": metrics.load_15m,
+                    "net_sent_bytes": metrics.network_bytes_sent,
+                    "net_recv_bytes": metrics.network_bytes_recv,
+                })
+            except Exception as e:
+                logger.debug("保存指标历史失败: %s", e)
         except Exception as e:
             logger.error("系统指标采集失败: %s", e)
             return

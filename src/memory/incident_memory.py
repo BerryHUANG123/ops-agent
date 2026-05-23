@@ -68,6 +68,21 @@ class IncidentMemory:
                 ON incidents(created_at);
             CREATE INDEX IF NOT EXISTS idx_incidents_resolved
                 ON incidents(resolved);
+
+            CREATE TABLE IF NOT EXISTS metrics_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL NOT NULL,
+                cpu_percent REAL,
+                memory_percent REAL,
+                disk_percent REAL,
+                load_1m REAL,
+                load_5m REAL,
+                load_15m REAL,
+                net_sent_bytes INTEGER,
+                net_recv_bytes INTEGER
+            );
+            CREATE INDEX IF NOT EXISTS idx_metrics_timestamp
+                ON metrics_history(timestamp);
         """)
         self._conn.commit()
         logger.debug("数据库表初始化完成: %s", self.db_path)
@@ -128,6 +143,49 @@ class IncidentMemory:
         record_id = cursor.lastrowid
         logger.info("事件记录已保存: id=%d, issue_id=%s", record_id, record.issue.id)
         return record_id  # type: ignore
+
+    def save_metrics(self, metrics: dict) -> None:
+        """保存指标快照到历史表"""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            INSERT INTO metrics_history
+            (timestamp, cpu_percent, memory_percent, disk_percent,
+             load_1m, load_5m, load_15m, net_sent_bytes, net_recv_bytes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            metrics.get("timestamp", time.time()),
+            metrics.get("cpu_percent"),
+            metrics.get("memory_percent"),
+            metrics.get("disk_percent"),
+            metrics.get("load_1m"),
+            metrics.get("load_5m"),
+            metrics.get("load_15m"),
+            metrics.get("net_sent_bytes"),
+            metrics.get("net_recv_bytes"),
+        ))
+        self._conn.commit()
+
+    def get_metrics_history(self, hours: int = 24, limit: int = 500) -> list:
+        """获取指标历史数据"""
+        since = time.time() - hours * 3600
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT timestamp, cpu_percent, memory_percent, disk_percent,
+                   load_1m, load_5m, load_15m
+            FROM metrics_history
+            WHERE timestamp > ?
+            ORDER BY timestamp ASC
+            LIMIT ?
+        """, (since, limit))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def cleanup_metrics(self, keep_hours: int = 168) -> int:
+        """清理过期指标数据（默认保留7天）"""
+        cutoff = time.time() - keep_hours * 3600
+        cursor = self._conn.cursor()
+        cursor.execute("DELETE FROM metrics_history WHERE timestamp < ?", (cutoff,))
+        self._conn.commit()
+        return cursor.rowcount
 
     def get_unresolved_fingerprints(self) -> dict:
         """获取所有未解决事件的指纹，返回 {issue_id: {title, severity, created_at, count}}"""

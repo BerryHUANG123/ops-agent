@@ -146,6 +146,26 @@ def create_app() -> Flask:
         """API: 实时系统指标"""
         return jsonify(_get_system_metrics())
 
+    @app.route("/api/metrics/history")
+    def api_metrics_history():
+        """API: 指标历史数据"""
+        hours = request.args.get("hours", 24, type=int)
+        if not DB_PATH.exists():
+            return jsonify([])
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.row_factory = sqlite3.Row
+        since = time.time() - hours * 3600
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT timestamp, cpu_percent, memory_percent, disk_percent,
+                   load_1m, load_5m, load_15m
+            FROM metrics_history WHERE timestamp > ?
+            ORDER BY timestamp ASC LIMIT 500
+        """, (since,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return jsonify(rows)
+
     @app.route("/api/incidents")
     def api_incidents():
         """API: 告警列表"""
