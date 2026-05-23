@@ -222,6 +222,77 @@ def create_app() -> Flask:
         procs.sort(key=lambda x: x["cpu"], reverse=True)
         return jsonify(procs[:n])
 
+    @app.route("/api/disk/prediction")
+    def api_disk_prediction():
+        """API: 磁盘增长趋势预测"""
+        if not DB_PATH.exists():
+            return jsonify({"error": "no data"})
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT timestamp, disk_percent FROM metrics_history
+            WHERE disk_percent IS NOT NULL
+            ORDER BY timestamp ASC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+
+        if len(rows) < 2:
+            return jsonify({"error": "insufficient data", "points": len(rows)})
+
+        # 线性回归预测磁盘增长
+        timestamps = [r["timestamp"] for r in rows]
+        disk_values = [r["disk_percent"] for r in rows]
+        n = len(timestamps)
+        t0 = timestamps[0]
+        x = [(t - t0) / 3600 for t in timestamps]  # 转为小时
+        y = disk_values
+
+        # 最小二乘法
+        sum_x = sum(x)
+        sum_y = sum(y)
+        sum_xy = sum(xi * yi for xi, yi in zip(x, y))
+        sum_x2 = sum(xi * xi for xi in x)
+        denom = n * sum_x2 - sum_x * sum_x
+        if denom == 0:
+            return jsonify({"error": "no variance", "points": n})
+
+        slope = (n * sum_xy - sum_x * sum_y) / denom  # %/小时
+        intercept = (sum_y - slope * sum_x) / n
+        current = disk_values[-1]
+
+        # 预测何时到达 90% 和 95%
+        result = {
+            "current_percent": current,
+            "growth_rate_per_hour": round(slope, 4),
+            "growth_rate_per_day": round(slope * 24, 2),
+            "data_points": n,
+            "data_hours": round(x[-1], 1),
+        }
+        if slope > 0:
+            hours_to_90 = (90 - current) / slope
+            hours_to_95 = (95 - current) / slope
+            from datetime import timedelta
+            try:
+                if hours_to_90 > 0 and hours_to_90 < 876000:
+                    days_to_90 = hours_to_90 / 24
+                    eta_90 = datetime.now() + timedelta(hours=min(hours_to_90, 876000))
+                    result["days_to_90"] = round(days_to_90, 1)
+                    result["eta_90"] = eta_90.strftime("%Y-%m-%d")
+                if hours_to_95 > 0 and hours_to_95 < 876000:
+                    days_to_95 = hours_to_95 / 24
+                    eta_95 = datetime.now() + timedelta(hours=min(hours_to_95, 876000))
+                    result["days_to_95"] = round(days_to_95, 1)
+                    result["eta_95"] = eta_95.strftime("%Y-%m-%d")
+            except (OverflowError, ValueError):
+                result["days_to_90"] = ">100年"
+                result["trend"] = "very_slow_growth"
+        else:
+            result["trend"] = "stable_or_decreasing"
+
+        return jsonify(result)
+
     @app.route("/api/health")
     def api_health():
         """API: OpsAgent 自身健康状态"""

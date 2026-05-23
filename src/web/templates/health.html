@@ -55,6 +55,11 @@
 </div>
 
 <div class="card">
+    <h2>💾 磁盘增长预测</h2>
+    <div id="diskPrediction" style="color: var(--text-muted); font-size: 13px;">加载中...</div>
+</div>
+
+<div class="card">
     <h2>🌐 监听端口</h2>
     <div id="portsList" style="color: var(--text-muted); font-size: 13px;">加载中...</div>
 </div>
@@ -156,5 +161,34 @@ async function loadProcesses() {
     }
 }
 loadProcesses();
+
+// 磁盘预测
+async function loadDiskPrediction() {
+    try {
+        const res = await fetch('/api/disk/prediction');
+        const data = await res.json();
+        let html = '';
+        if (data.error) {
+            html = `<span style="color:var(--text-muted)">数据不足（${data.points || 0} 个采样点），需要运行一段时间后才能预测</span>`;
+        } else {
+            html = `<div class="stats-grid">`;
+            html += `<div class="stat-item"><div class="num">${data.current_percent}%</div><div class="desc">当前使用率</div></div>`;
+            html += `<div class="stat-item"><div class="num">${data.growth_rate_per_day}%</div><div class="desc">每日增长</div></div>`;
+            html += `<div class="stat-item"><div class="num">${data.data_hours}h</div><div class="desc">采样跨度</div></div>`;
+            if (data.days_to_90 !== undefined) {
+                const color = data.days_to_90 < 7 ? 'var(--danger)' : data.days_to_90 < 30 ? 'var(--warning)' : 'var(--success)';
+                html += `<div class="stat-item"><div class="num" style="color:${color}">${data.days_to_90}天</div><div class="desc">预计达到 90%</div></div>`;
+                html += `<div class="stat-item"><div class="num" style="color:${color}">${data.eta_90}</div><div class="desc">预计日期</div></div>`;
+            } else if (data.trend === 'stable_or_decreasing') {
+                html += `<div class="stat-item"><div class="num" style="color:var(--success)">✅</div><div class="desc">磁盘稳定或下降</div></div>`;
+            }
+            html += `</div>`;
+        }
+        document.getElementById('diskPrediction').innerHTML = html;
+    } catch (e) {
+        document.getElementById('diskPrediction').innerHTML = '加载失败';
+    }
+}
+loadDiskPrediction();
 </script>
 {% endblock %}
