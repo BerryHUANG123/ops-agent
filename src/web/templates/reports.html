@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}巡检报告 - OpsAgent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📋 巡检报告</h1>
+    <div class="time">共 {{ reports|length }} 份</div>
+</div>
+
+<div class="card">
+    {% if reports %}
+    {% for r in reports %}
+    <div class="report-item">
+        <div>
+            <a href="/reports/{{ r.filename }}" target="_blank">{{ r.filename }}</a>
+            <div class="meta">{{ r.created_at }} · {{ r.size_kb }}KB</div>
+        </div>
+        <a href="/reports/{{ r.filename }}" target="_blank"
+           style="background: #6c63ff; color: #fff; padding: 6px 16px; border-radius: 6px; text-decoration: none; font-size: 13px;">
+            查看报告
+        </a>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div style="text-align: center; padding: 60px; color: #6b7280;">
+        <div style="font-size: 48px; margin-bottom: 12px;">📄</div>
+        <div style="font-size: 16px;">暂无巡检报告</div>
+        <div style="font-size: 13px; margin-top: 8px;">报告会在巡检后自动生成</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

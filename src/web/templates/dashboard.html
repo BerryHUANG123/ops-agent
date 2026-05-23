@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}仪表盘 - OpsAgent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📊 系统仪表盘</h1>
+    <div class="time">更新于 {{ metrics.timestamp }}</div>
+</div>
+
+<!-- 系统指标 -->
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="label">CPU 使用率</div>
+        <div class="value {% if metrics.cpu_percent > 90 %}color-critical{% elif metrics.cpu_percent > 70 %}color-warning{% else %}color-normal{% endif %}">
+            {{ metrics.cpu_percent }}%
+        </div>
+        <div class="sub">{{ metrics.cpu_count }} 核心 · 负载 {{ metrics.load_1m }}</div>
+        <div class="bar">
+            <div class="bar-fill {% if metrics.cpu_percent > 90 %}bg-critical{% elif metrics.cpu_percent > 70 %}bg-warning{% else %}bg-normal{% endif %}"
+                 style="width: {{ metrics.cpu_percent }}%"></div>
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="label">内存使用率</div>
+        <div class="value {% if metrics.memory_percent > 90 %}color-critical{% elif metrics.memory_percent > 70 %}color-warning{% else %}color-normal{% endif %}">
+            {{ metrics.memory_percent }}%
+        </div>
+        <div class="sub">{{ metrics.memory_used_gb }}G / {{ metrics.memory_total_gb }}G</div>
+        <div class="bar">
+            <div class="bar-fill {% if metrics.memory_percent > 90 %}bg-critical{% elif metrics.memory_percent > 70 %}bg-warning{% else %}bg-normal{% endif %}"
+                 style="width: {{ metrics.memory_percent }}%"></div>
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="label">磁盘使用率</div>
+        <div class="value {% if metrics.disk_percent > 90 %}color-critical{% elif metrics.disk_percent > 80 %}color-warning{% else %}color-normal{% endif %}">
+            {{ metrics.disk_percent }}%
+        </div>
+        <div class="sub">{{ metrics.disk_used_gb }}G / {{ metrics.disk_total_gb }}G</div>
+        <div class="bar">
+            <div class="bar-fill {% if metrics.disk_percent > 90 %}bg-critical{% elif metrics.disk_percent > 80 %}bg-warning{% else %}bg-normal{% endif %}"
+                 style="width: {{ metrics.disk_percent }}%"></div>
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="label">系统运行时间</div>
+        <div class="value color-normal" style="font-size: 18px;">{{ metrics.uptime }}</div>
+        <div class="sub">网络 ↑{{ metrics.net_sent_gb }}G ↓{{ metrics.net_recv_gb }}G</div>
+    </div>
+</div>
+
+<!-- 服务状态 + Docker -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+    <div class="card">
+        <h2>🔧 监控服务</h2>
+        {% for svc in services %}
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #2a2d3a;">
+            <div>
+                <span class="status-dot {% if svc.running %}on{% else %}off{% endif %}"></span>
+                {{ svc.name }}
+            </div>
+            <span class="badge {% if svc.running %}badge-running{% else %}badge-stopped{% endif %}">
+                {% if svc.running %}运行中{% else %}已停止{% endif %}
+            </span>
+        </div>
+        {% endfor %}
+        {% if not services %}
+        <div style="color: #6b7280; font-size: 13px;">未配置监控服务</div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>🐳 Docker 容器</h2>
+        {% for c in docker[:8] %}
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #2a2d3a;">
+            <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px;">
+                <span class="status-dot {% if c.running %}on{% else %}off{% endif %}"></span>
+                {{ c.name }}
+            </div>
+            <span class="badge {% if c.running %}badge-running{% else %}badge-stopped{% endif %}">
+                {% if c.running %}运行中{% else %}已停止{% endif %}
+            </span>
+        </div>
+        {% endfor %}
+        {% if not docker %}
+        <div style="color: #6b7280; font-size: 13px;">无 Docker 容器</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 统计概览 -->
+<div class="card" style="margin-bottom: 24px;">
+    <h2>📈 事件统计</h2>
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="num">{{ stats.total_incidents }}</div>
+            <div class="desc">总事件数</div>
+        </div>
+        <div class="stat-item">
+            <div class="num color-normal">{{ stats.resolved_count }}</div>
+            <div class="desc">已解决</div>
+        </div>
+        <div class="stat-item">
+            <div class="num">{{ stats.resolution_rate }}%</div>
+            <div class="desc">解决率</div>
+        </div>
+        {% for stype, count in stats.by_severity.items() %}
+        <div class="stat-item">
+            <div class="num {% if stype == 'critical' %}color-critical{% elif stype == 'warning' %}color-warning{% else %}color-normal{% endif %}">
+                {{ count }}
+            </div>
+            <div class="desc">{{ stype }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- 最近告警 -->
+<div class="card">
+    <h2>🚨 最近告警</h2>
+    {% if incidents %}
+    <table>
+        <thead>
+            <tr>
+                <th>时间</th>
+                <th>级别</th>
+                <th>类型</th>
+                <th>标题</th>
+                <th>状态</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inc in incidents %}
+            <tr>
+                <td style="white-space: nowrap;">{{ inc.created_at }}</td>
+                <td>
+                    <span class="badge badge-{{ inc.severity }}">{{ inc.severity }}</span>
+                </td>
+                <td>{{ inc.issue_type }}</td>
+                <td>{{ inc.title[:60] }}</td>
+                <td>
+                    {% if inc.resolved %}
+                    <span class="badge badge-success">已解决</span>
+                    {% else %}
+                    <span class="badge badge-warning">未解决</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="text-align: right; margin-top: 12px;">
+        <a href="/incidents" style="color: #6c63ff; text-decoration: none; font-size: 13px;">查看全部 →</a>
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 40px; color: #6b7280;">
+        <div style="font-size: 32px; margin-bottom: 8px;">✅</div>
+        <div>暂无告警记录</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 自动刷新 -->
+<script>
+    setTimeout(() => location.reload(), 30000);
+</script>
+{% endblock %}
