@@ -5,7 +5,14 @@
 {% block content %}
 <div class="page-header">
     <h1>🚨 告警记录</h1>
-    <div class="time">共 {{ total }} 条</div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+        <div class="time">共 {{ total }} 条</div>
+        {% if total > 0 %}
+        <button onclick="resolveAll()" style="background: var(--accent); color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer;">
+            ✅ 全部标记已解决
+        </button>
+        {% endif %}
+    </div>
 </div>
 
 <div class="card">
@@ -20,27 +27,40 @@
                 <th>标题</th>
                 <th>描述</th>
                 <th>状态</th>
+                <th>操作</th>
             </tr>
         </thead>
         <tbody>
             {% for inc in incidents %}
-            <tr>
-                <td style="color: #6b7280;">#{{ inc.id }}</td>
+            <tr id="row-{{ inc.id }}">
+                <td style="color: var(--text-muted);">#{{ inc.id }}</td>
                 <td style="white-space: nowrap;">{{ inc.created_at }}</td>
                 <td>
                     <span class="badge badge-{{ inc.severity }}">{{ inc.severity }}</span>
                 </td>
                 <td>{{ inc.issue_type }}</td>
                 <td>{{ inc.title[:50] }}</td>
-                <td style="color: #6b7280; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                <td style="color: var(--text-muted); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                     {{ inc.description[:80] if inc.description else '-' }}
                 </td>
-                <td>
+                <td id="status-{{ inc.id }}">
                     {% if inc.resolved %}
                     <span class="badge badge-success">已解决</span>
                     {% else %}
                     <span class="badge badge-warning">未解决</span>
                     {% endif %}
+                </td>
+                <td>
+                    {% if not inc.resolved %}
+                    <button onclick="resolveOne({{ inc.id }})" id="btn-{{ inc.id }}"
+                            style="background: var(--success); color: #fff; border: none; padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; margin-right: 4px;">
+                        ✅ 解决
+                    </button>
+                    {% endif %}
+                    <button onclick="deleteOne({{ inc.id }})"
+                            style="background: var(--danger); color: #fff; border: none; padding: 3px 10px; border-radius: 4px; font-size: 11px; cursor: pointer;">
+                        🗑️
+                    </button>
                 </td>
             </tr>
             {% endfor %}
@@ -66,11 +86,51 @@
     {% endif %}
 
     {% else %}
-    <div style="text-align: center; padding: 60px; color: #6b7280;">
+    <div style="text-align: center; padding: 60px; color: var(--text-muted);">
         <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
         <div style="font-size: 16px;">暂无告警记录</div>
         <div style="font-size: 13px; margin-top: 8px;">系统运行正常</div>
     </div>
     {% endif %}
 </div>
+
+<script>
+async function resolveOne(id) {
+    const res = await fetch('/api/incidents/resolve', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id})
+    });
+    const data = await res.json();
+    if (data.ok) {
+        document.getElementById('status-' + id).innerHTML = '<span class="badge badge-success">已解决</span>';
+        document.getElementById('btn-' + id).style.display = 'none';
+    }
+}
+
+async function resolveAll() {
+    if (!confirm('确定将所有未解决事件标记为已解决？')) return;
+    const res = await fetch('/api/incidents/resolve-all', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'}
+    });
+    const data = await res.json();
+    if (data.ok) {
+        location.reload();
+    }
+}
+
+async function deleteOne(id) {
+    if (!confirm('确定删除此事件？')) return;
+    const res = await fetch('/api/incidents/delete', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({id})
+    });
+    const data = await res.json();
+    if (data.ok) {
+        document.getElementById('row-' + id).remove();
+    }
+}
+</script>
 {% endblock %}

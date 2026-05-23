@@ -65,6 +65,53 @@ def create_app() -> Flask:
             server_name=_get_server_name(),
         )
 
+    @app.route("/api/incidents/resolve", methods=["POST"])
+    def api_resolve_incident():
+        """API: 标记事件为已解决"""
+        data = request.get_json() or {}
+        incident_id = data.get("id")
+        if not incident_id:
+            return jsonify({"ok": False, "error": "missing id"}), 400
+        conn = sqlite3.connect(str(DB_PATH))
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE incidents SET resolved=1, updated_at=? WHERE id=?",
+            (time.time(), incident_id),
+        )
+        conn.commit()
+        changed = cursor.rowcount
+        conn.close()
+        return jsonify({"ok": True, "resolved": changed})
+
+    @app.route("/api/incidents/resolve-all", methods=["POST"])
+    def api_resolve_all():
+        """API: 标记所有未解决事件为已解决"""
+        conn = sqlite3.connect(str(DB_PATH))
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE incidents SET resolved=1, updated_at=? WHERE resolved=0",
+            (time.time(),),
+        )
+        conn.commit()
+        changed = cursor.rowcount
+        conn.close()
+        return jsonify({"ok": True, "resolved": changed})
+
+    @app.route("/api/incidents/delete", methods=["POST"])
+    def api_delete_incident():
+        """API: 删除单个事件"""
+        data = request.get_json() or {}
+        incident_id = data.get("id")
+        if not incident_id:
+            return jsonify({"ok": False, "error": "missing id"}), 400
+        conn = sqlite3.connect(str(DB_PATH))
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM incidents WHERE id=?", (incident_id,))
+        conn.commit()
+        changed = cursor.rowcount
+        conn.close()
+        return jsonify({"ok": True, "deleted": changed})
+
     @app.route("/reports")
     def reports():
         """巡检报告列表"""
