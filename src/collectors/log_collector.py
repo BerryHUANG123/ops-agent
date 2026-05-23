@@ -29,18 +29,23 @@ class LogCollector:
         logs_config = config.get("logs", {})
         log_paths: List[str] = logs_config.get("paths", [])
         error_patterns: List[str] = logs_config.get("error_patterns", ["error", "critical", "fatal"])
+        ignore_patterns: List[str] = logs_config.get("ignore_patterns", [])
         max_lines: int = logs_config.get("max_lines_per_check", 1000)
 
         # 编译正则，忽略大小写
         compiled_patterns = [
             re.compile(re.escape(p), re.IGNORECASE) for p in error_patterns
         ]
+        # 编译忽略模式
+        compiled_ignore = [
+            re.compile(re.escape(p), re.IGNORECASE) for p in ignore_patterns
+        ]
 
         all_errors: List[LogEntry] = []
 
         for log_path in log_paths:
             try:
-                errors = self._read_log_file(log_path, compiled_patterns, max_lines)
+                errors = self._read_log_file(log_path, compiled_patterns, compiled_ignore, max_lines)
                 all_errors.extend(errors)
             except FileNotFoundError:
                 logger.warning("日志文件不存在: %s", log_path)
@@ -55,6 +60,7 @@ class LogCollector:
         self,
         log_path: str,
         patterns: List[re.Pattern],
+        ignore_patterns: List[re.Pattern],
         max_lines: int,
     ) -> List[LogEntry]:
         """增量读取单个日志文件，只处理新增行
@@ -83,7 +89,11 @@ class LogCollector:
 
         with open(log_path, "r", encoding="utf-8", errors="replace") as f:
             f.seek(last_pos)
-            for line in f:
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+
                 lines_read += 1
                 if lines_read > max_lines:
                     logger.warning("达到最大读取行数 %d，跳过剩余: %s", max_lines, log_path)
@@ -91,6 +101,10 @@ class LogCollector:
 
                 line = line.strip()
                 if not line:
+                    continue
+
+                # 跳过忽略模式匹配的行
+                if any(ip.search(line) for ip in ignore_patterns):
                     continue
 
                 for pattern in patterns:

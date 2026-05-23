@@ -11,7 +11,7 @@ from typing import List, Optional
 
 import yaml
 
-from src.models import IncidentRecord, Severity, SystemMetrics
+from src.models import IncidentRecord, LogEntry, Severity, SystemMetrics
 from src.collectors.system_collector import SystemCollector
 from src.collectors.log_collector import LogCollector
 from src.collectors.docker_collector import DockerCollector
@@ -261,9 +261,20 @@ class OpsAgent:
         containers = []
         try:
             if self.docker_collector.is_available():
+                docker_cfg = self.config.get("docker", {})
+                skip_stopped = docker_cfg.get("skip_stopped", False)
+                ignore_list = set(docker_cfg.get("ignore_containers", []))
+
                 container_infos = self.docker_collector.collect_containers()
-                containers = [
-                    {
+                containers = []
+                for c in container_infos:
+                    # 跳过忽略的容器
+                    if c.name in ignore_list:
+                        continue
+                    # 跳过已停止的容器
+                    if skip_stopped and c.status != "running":
+                        continue
+                    containers.append({
                         "id": c.id,
                         "name": c.name,
                         "image": c.image,
@@ -276,9 +287,7 @@ class OpsAgent:
                         "net_rx_bytes": c.net_rx_bytes,
                         "net_tx_bytes": c.net_tx_bytes,
                         "restart_count": c.restart_count,
-                    }
-                    for c in container_infos
-                ]
+                    })
                 logger.info("采集到 %d 个 Docker 容器", len(containers))
         except Exception as e:
             logger.error("Docker 容器采集失败: %s", e)
@@ -296,13 +305,12 @@ class OpsAgent:
                     max_entries=500,
                 )
                 journal_logs = [
-                    {
-                        "source": f"journal:{e.unit}",
-                        "file": f"journalctl -u {e.unit}",
-                        "line": 0,
-                        "content": f"[{e.priority_name}] {e.message}",
-                        "timestamp": e.timestamp,
-                    }
+                    LogEntry(
+                        timestamp=e.timestamp if hasattr(e, 'timestamp') else datetime.now(),
+                        source=f"journal:{e.unit}" if hasattr(e, 'unit') else "journal",
+                        level=e.priority_name if hasattr(e, 'priority_name') else "ERROR",
+                        message=f"[{e.priority_name}] {e.message}" if hasattr(e, 'message') else str(e),
+                    )
                     for e in journal_entries
                 ]
                 if journal_logs:
@@ -518,6 +526,20 @@ class OpsAgent:
             dict: 检查结果摘要
         """
         self._run_check_cycle()
+
+        # 生成报告
+        try:
+            if self._metrics_history:
+                report_path = self.report_generator.generate(
+                    metrics_history=self._metrics_history,
+                    issues=[],
+                    actions=[],
+                    config=self.config,
+                )
+                logger.info("巡检报告已生成: %s", report_path)
+        except Exception as e:
+            logger.error("生成报告失败: %s", e)
+
         stats = self.memory.get_stats()
         return {
             "check_count": self._check_count,

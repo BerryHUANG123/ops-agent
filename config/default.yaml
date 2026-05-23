@@ -12,10 +12,14 @@ services:
   watch:
     - name: sshd
       process: sshd
-    - name: nginx
-      process: nginx
     - name: docker
       process: dockerd
+
+# Docker 容器监控
+docker:
+  skip_stopped: true       # 跳过已停止的容器，只监控运行中的
+  ignore_containers:       # 忽略的容器名（正则或精确匹配）
+    - hello-world
 
 logs:
   paths:
@@ -29,6 +33,10 @@ logs:
     - "killed"
     - "segfault"
   max_lines_per_check: 1000
+  # 忽略包含这些关键词的日志行（减少噪音）
+  ignore_patterns:
+    - "node["       # OpenClaw/node 进程日志
+    - "ignoring stale"
 
 remediation:
   enabled: true
