@@ -18,6 +18,7 @@ from src.collectors.log_collector import LogCollector
 from src.collectors.docker_collector import DockerCollector
 from src.collectors.journal_collector import JournalCollector
 from src.collectors.smart_collector import SmartCollector
+from src.collectors.network_collector import NetworkCollector
 from src.detectors.anomaly_detector import AnomalyDetector
 from src.analyzers.fault_analyzer import FaultAnalyzer
 from src.analyzers.llm_analyzer import LLMAnalyzer
@@ -69,6 +70,7 @@ class OpsAgent:
         self.docker_collector = DockerCollector()
         self.journal_collector = JournalCollector()
         self.smart_collector = SmartCollector()
+        self.network_collector = NetworkCollector()
         self.anomaly_detector = AnomalyDetector()
         self.fault_analyzer = FaultAnalyzer()
         self.auto_remediator = AutoRemediator(dry_run=dry_run)

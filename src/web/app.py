@@ -181,6 +181,25 @@ def create_app() -> Flask:
             server_name=_get_server_name(),
         )
 
+    @app.route("/api/network")
+    def api_network():
+        """API: 网络连接信息"""
+        from src.collectors.network_collector import NetworkCollector
+        nc = NetworkCollector()
+        ports = nc.collect_listening_ports()
+        conns = nc.collect_connections(max_connections=50)
+        return jsonify({
+            "listening": [{
+                "port": p.port, "protocol": p.protocol,
+                "process": p.process_name, "pid": p.pid, "address": p.address,
+            } for p in ports],
+            "connections": [{
+                "local": f"{c.local_addr}:{c.local_port}",
+                "remote": f"{c.remote_addr}:{c.remote_port}",
+                "status": c.status, "process": c.process_name, "pid": c.pid,
+            } for c in conns],
+        })
+
     @app.route("/api/health")
     def api_health():
         """API: OpsAgent 自身健康状态"""

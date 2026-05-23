@@ -54,6 +54,16 @@
     </div>
 </div>
 
+<div class="card">
+    <h2>🌐 监听端口</h2>
+    <div id="portsList" style="color: var(--text-muted); font-size: 13px;">加载中...</div>
+</div>
+
+<div class="card">
+    <h2>🔗 活跃连接 (Top 20)</h2>
+    <div id="connsList" style="color: var(--text-muted); font-size: 13px;">加载中...</div>
+</div>
+
 <script>
 async function loadHealth() {
     try {
@@ -96,5 +106,32 @@ async function loadHealth() {
 }
 loadHealth();
 setInterval(loadHealth, 15000);
+
+// 网络监控
+async function loadNetwork() {
+    try {
+        const res = await fetch('/api/network');
+        const data = await res.json();
+
+        // 监听端口
+        let portsHtml = '<table style="width:100%"><thead><tr><th>端口</th><th>协议</th><th>进程</th><th>地址</th></tr></thead><tbody>';
+        data.listening.forEach(p => {
+            portsHtml += `<tr><td style="color:var(--accent);font-weight:600">${p.port}</td><td>${p.protocol}</td><td>${p.process}</td><td style="font-family:monospace;font-size:12px">${p.address}</td></tr>`;
+        });
+        portsHtml += '</tbody></table>';
+        document.getElementById('portsList').innerHTML = portsHtml;
+
+        // 活跃连接
+        let connsHtml = '<table style="width:100%"><thead><tr><th>本地</th><th>远程</th><th>状态</th><th>进程</th></tr></thead><tbody>';
+        data.connections.slice(0, 20).forEach(c => {
+            connsHtml += `<tr><td style="font-family:monospace;font-size:12px">${c.local}</td><td style="font-family:monospace;font-size:12px">${c.remote}</td><td><span class="badge badge-success">${c.status}</span></td><td>${c.process}</td></tr>`;
+        });
+        connsHtml += '</tbody></table>';
+        document.getElementById('connsList').innerHTML = connsHtml;
+    } catch (e) {
+        document.getElementById('portsList').innerHTML = '加载失败';
+    }
+}
+loadNetwork();
 </script>
 {% endblock %}
