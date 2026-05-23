@@ -32,6 +32,7 @@ class AnomalyDetector:
         logs: List[LogEntry],
         config: dict,
         containers: Optional[List[dict]] = None,
+        smart_disks: Optional[list] = None,
     ) -> List[Issue]:
         """检测系统异常，返回 Issue 列表
 
@@ -285,8 +286,60 @@ class AnomalyDetector:
                         details={"container_name": c_name, "restart_count": c_restart},
                     ))
 
+        # SMART 磁盘健康检测
+        if smart_disks:
+            self._detect_smart_issues(smart_disks, issues)
+
         logger.info("检测完成，发现 %d 个问题", len(issues))
         return issues
+
+    @staticmethod
+    def _detect_smart_issues(smart_disks: list, issues: list) -> None:
+        """检测 SMART 磁盘健康问题"""
+        for disk in smart_disks:
+            if disk.health == "FAILED":
+                issues.append(Issue(
+                    id=hashlib.md5(f"disk_smart:{disk.device}:failed".encode()).hexdigest()[:12],
+                    timestamp=datetime.now(),
+                    severity=Severity.CRITICAL,
+                    issue_type=IssueType.DISK_SMART,
+                    title=f"磁盘 SMART 健康检查失败: {disk.device}",
+                    description=f"磁盘 {disk.device} ({disk.model}) SMART 健康状态为 FAILED",
+                    details={"device": disk.device, "model": disk.model},
+                ))
+            if disk.pending_sectors > 0:
+                sev = Severity.CRITICAL if disk.pending_sectors > 100 else Severity.WARNING
+                issues.append(Issue(
+                    id=hashlib.md5(f"disk_smart:{disk.device}:pending".encode()).hexdigest()[:12],
+                    timestamp=datetime.now(),
+                    severity=sev,
+                    issue_type=IssueType.DISK_SMART,
+                    title=f"磁盘待重映射扇区: {disk.device} ({disk.pending_sectors}个)",
+                    description=f"磁盘 {disk.device} ({disk.model}) 有 {disk.pending_sectors} 个待重映射扇区",
+                    details={"device": disk.device, "pending_sectors": disk.pending_sectors},
+                ))
+            if disk.reallocated_sectors > 0:
+                sev = Severity.CRITICAL if disk.reallocated_sectors > 100 else Severity.WARNING
+                issues.append(Issue(
+                    id=hashlib.md5(f"disk_smart:{disk.device}:reallocated".encode()).hexdigest()[:12],
+                    timestamp=datetime.now(),
+                    severity=sev,
+                    issue_type=IssueType.DISK_SMART,
+                    title=f"磁盘重映射扇区: {disk.device} ({disk.reallocated_sectors}个)",
+                    description=f"磁盘 {disk.device} ({disk.model}) 有 {disk.reallocated_sectors} 个重映射扇区",
+                    details={"device": disk.device, "reallocated_sectors": disk.reallocated_sectors},
+                ))
+            if disk.temperature > 60:
+                sev = Severity.CRITICAL if disk.temperature > 70 else Severity.WARNING
+                issues.append(Issue(
+                    id=hashlib.md5(f"disk_smart:{disk.device}:temp".encode()).hexdigest()[:12],
+                    timestamp=datetime.now(),
+                    severity=sev,
+                    issue_type=IssueType.DISK_SMART,
+                    title=f"磁盘温度过高: {disk.device} ({disk.temperature}°C)",
+                    description=f"磁盘 {disk.device} ({disk.model}) 温度 {disk.temperature}°C 超过阈值",
+                    details={"device": disk.device, "temperature": disk.temperature},
+                ))
 
     @staticmethod
     def _make_fingerprint(issue_type: str, title: str) -> str:

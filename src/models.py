@@ -20,6 +20,7 @@ class IssueType(Enum):
     LOAD_HIGH = "load_high"
     SERVICE_DOWN = "service_down"
     LOG_ERROR = "log_error"
+    DISK_SMART = "disk_smart"
     PROCESS_CRASH = "process_crash"
 
 

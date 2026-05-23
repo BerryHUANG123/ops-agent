@@ -17,6 +17,7 @@ from src.collectors.system_collector import SystemCollector
 from src.collectors.log_collector import LogCollector
 from src.collectors.docker_collector import DockerCollector
 from src.collectors.journal_collector import JournalCollector
+from src.collectors.smart_collector import SmartCollector
 from src.detectors.anomaly_detector import AnomalyDetector
 from src.analyzers.fault_analyzer import FaultAnalyzer
 from src.analyzers.llm_analyzer import LLMAnalyzer
@@ -67,6 +68,7 @@ class OpsAgent:
         self.log_collector = LogCollector()
         self.docker_collector = DockerCollector()
         self.journal_collector = JournalCollector()
+        self.smart_collector = SmartCollector()
         self.anomaly_detector = AnomalyDetector()
         self.fault_analyzer = FaultAnalyzer()
         self.auto_remediator = AutoRemediator(dry_run=dry_run)
@@ -350,9 +352,18 @@ class OpsAgent:
         # 合并所有日志
         logs = logs + journal_logs
 
+        # 采集 SMART 磁盘健康
+        smart_disks = []
+        try:
+            smart_disks = self.smart_collector.collect_all()
+            if smart_disks:
+                logger.info("采集到 %d 个磁盘 SMART 信息", len(smart_disks))
+        except Exception as e:
+            logger.debug("SMART 采集失败: %s", e)
+
         # 2. 检测
         try:
-            issues = self.anomaly_detector.detect(metrics, services, logs, self.config, containers=containers)
+            issues = self.anomaly_detector.detect(metrics, services, logs, self.config, containers=containers, smart_disks=smart_disks)
         except Exception as e:
             logger.error("异常检测失败: %s", e)
             issues = []
