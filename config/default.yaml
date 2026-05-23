@@ -116,7 +116,7 @@ webui:
     secret_key: "ops-agent-secret-key-change-me"
     users:
       admin:
-        password: "ZG4Q29mJwyGVFL0W"  # 已改强密码
+        password: "qq119110+"  # 已改强密码
         role: "admin"           # admin = 全部权限, viewer = 只读
       guest:
         password: "guest"
