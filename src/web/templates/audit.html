@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}审计日志 - OpsAgent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>📝 审计日志</h1>
+    <div class="time">共 {{ total }} 条操作记录</div>
+</div>
+
+<div class="card">
+    {% if logs %}
+    <table>
+        <thead>
+            <tr>
+                <th>时间</th>
+                <th>操作</th>
+                <th>目标</th>
+                <th>命令</th>
+                <th>结果</th>
+                <th>状态</th>
+                <th>操作者</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td style="white-space: nowrap; font-size: 12px;">{{ log.timestamp }}</td>
+                <td><span class="badge badge-info">{{ log.action }}</span></td>
+                <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ log.target }}</td>
+                <td style="font-family: monospace; font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ log.command }}">{{ log.command[:50] }}</td>
+                <td style="font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ log.result }}">{{ log.result[:60] }}</td>
+                <td>
+                    {% if log.success %}
+                    <span class="badge badge-success">成功</span>
+                    {% else %}
+                    <span class="badge badge-critical">失败</span>
+                    {% endif %}
+                </td>
+                <td style="font-size: 12px; color: var(--text-muted);">{{ log.operator }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if total_pages > 1 %}
+    <div class="pagination">
+        {% if page > 1 %}
+        <a href="/audit?page={{ page - 1 }}">← 上一页</a>
+        {% endif %}
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+            <span class="current">{{ p }}</span>
+            {% else %}
+            <a href="/audit?page={{ p }}">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page < total_pages %}
+        <a href="/audit?page={{ page + 1 }}">下一页 →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div style="text-align: center; padding: 60px; color: var(--text-muted);">
+        <div style="font-size: 48px; margin-bottom: 12px;">📋</div>
+        <div style="font-size: 16px;">暂无审计记录</div>
+        <div style="font-size: 13px; margin-top: 8px;">自动处置操作会记录在这里</div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

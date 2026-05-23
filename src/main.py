@@ -388,6 +388,21 @@ class OpsAgent:
         except Exception as e:
             logger.error("自动处置失败: %s", e)
 
+        # 4.1 审计日志：记录所有处置操作
+        for action_result in actions:
+            try:
+                self.memory.save_audit(
+                    action=action_result.action.action_type.value,
+                    target=action_result.action.target,
+                    command=action_result.action.command,
+                    result=action_result.output[:500],
+                    success=action_result.success,
+                    operator="ops-agent",
+                    details=f"issue_id={action_result.action.issue_id}",
+                )
+            except Exception as e:
+                logger.debug("审计日志保存失败: %s", e)
+
         # 5. 记录到记忆
         try:
             self._record_incidents(issues, analysis, actions, time.time() - start_time)

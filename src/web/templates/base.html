@@ -213,6 +213,9 @@
             <a href="/config" class="{% if request.path == '/config' %}active{% endif %}">
                 <span class="icon">⚙️</span> 配置
             </a>
+            <a href="/audit" class="{% if request.path == '/audit' %}active{% endif %}">
+                <span class="icon">📝</span> 审计日志
+            </a>
         </nav>
         <div class="server-info">
             <div class="name">{{ server_name }}</div>

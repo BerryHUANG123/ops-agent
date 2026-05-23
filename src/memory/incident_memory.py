@@ -83,6 +83,22 @@ class IncidentMemory:
             );
             CREATE INDEX IF NOT EXISTS idx_metrics_timestamp
                 ON metrics_history(timestamp);
+
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp REAL NOT NULL,
+                action TEXT NOT NULL,
+                target TEXT,
+                command TEXT,
+                result TEXT,
+                success INTEGER DEFAULT 0,
+                operator TEXT DEFAULT 'ops-agent',
+                details TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_audit_timestamp
+                ON audit_log(timestamp);
+            CREATE INDEX IF NOT EXISTS idx_audit_action
+                ON audit_log(action);
         """)
         self._conn.commit()
         logger.debug("数据库表初始化完成: %s", self.db_path)
@@ -186,6 +202,42 @@ class IncidentMemory:
         cursor.execute("DELETE FROM metrics_history WHERE timestamp < ?", (cutoff,))
         self._conn.commit()
         return cursor.rowcount
+
+    def save_audit(self, action: str, target: str = "", command: str = "",
+                   result: str = "", success: bool = False, operator: str = "ops-agent",
+                   details: str = "") -> int:
+        """保存审计日志"""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            INSERT INTO audit_log (timestamp, action, target, command, result, success, operator, details)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (time.time(), action, target, command, result, 1 if success else 0, operator, details))
+        self._conn.commit()
+        return cursor.lastrowid
+
+    def get_audit_logs(self, limit: int = 100, offset: int = 0) -> tuple:
+        """获取审计日志列表，返回 (logs, total)"""
+        cursor = self._conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM audit_log")
+        total = cursor.fetchone()[0]
+        cursor.execute("""
+            SELECT id, timestamp, action, target, command, result, success, operator, details
+            FROM audit_log ORDER BY timestamp DESC LIMIT ? OFFSET ?
+        """, (limit, offset))
+        logs = []
+        for row in cursor.fetchall():
+            logs.append({
+                "id": row["id"],
+                "timestamp": row["timestamp"],
+                "action": row["action"],
+                "target": row["target"],
+                "command": row["command"],
+                "result": row["result"],
+                "success": bool(row["success"]),
+                "operator": row["operator"],
+                "details": row["details"],
+            })
+        return logs, total
 
     def get_unresolved_fingerprints(self) -> dict:
         """获取所有未解决事件的指纹，返回 {issue_id: {title, severity, created_at, count}}"""

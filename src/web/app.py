@@ -130,6 +130,41 @@ def create_app() -> Flask:
             return "报告不存在", 404
         return report_path.read_text(encoding="utf-8")
 
+    @app.route("/audit")
+    def audit():
+        """审计日志"""
+        page = request.args.get("page", 1, type=int)
+        per_page = 30
+        offset = (page - 1) * per_page
+        if DB_PATH.exists():
+            conn = sqlite3.connect(str(DB_PATH))
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM audit_log")
+            total = cursor.fetchone()[0]
+            cursor.execute("""
+                SELECT id, timestamp, action, target, command, result, success, operator, details
+                FROM audit_log ORDER BY timestamp DESC LIMIT ? OFFSET ?
+            """, (per_page, offset))
+            logs = []
+            for row in cursor.fetchall():
+                ts = row["timestamp"]
+                if isinstance(ts, (int, float)):
+                    ts = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+                logs.append({
+                    "id": row["id"], "timestamp": ts, "action": row["action"],
+                    "target": row["target"], "command": row["command"],
+                    "result": row["result"], "success": bool(row["success"]),
+                    "operator": row["operator"], "details": row["details"],
+                })
+            conn.close()
+        else:
+            logs, total = [], 0
+        total_pages = (total + per_page - 1) // per_page
+        return render_template("audit.html", logs=logs, page=page,
+                               total_pages=total_pages, total=total,
+                               server_name=_get_server_name())
+
     @app.route("/config")
     def config():
         """配置查看"""
