@@ -37,14 +37,18 @@ def create_app() -> Flask:
     app.config["AUTH_ENABLED"] = auth_cfg.get("enabled", False)
     app.config["USERS"] = auth_cfg.get("users", {})
 
-    # 登录检查装饰器
+    # 登录检查装饰器：viewer 角色可直接访问，admin 操作需登录
     def login_required(f):
         @wraps(f)
         def decorated(*args, **kwargs):
             if not app.config["AUTH_ENABLED"]:
                 return f(*args, **kwargs)
-            if "user" not in session:
-                return redirect(url_for("login", next=request.url))
+            # 已登录用户正常访问
+            if "user" in session:
+                return f(*args, **kwargs)
+            # 未登录 = guest 角色，允许只读访问
+            session["user"] = "guest"
+            session["role"] = "viewer"
             return f(*args, **kwargs)
         return decorated
 
@@ -53,12 +57,8 @@ def create_app() -> Flask:
         def decorated(*args, **kwargs):
             if not app.config["AUTH_ENABLED"]:
                 return f(*args, **kwargs)
-            if "user" not in session:
-                return redirect(url_for("login", next=request.url))
-            users = app.config["USERS"]
-            user = session["user"]
-            if users.get(user, {}).get("role") != "admin":
-                return jsonify({"error": "forbidden", "message": "需要管理员权限"}), 403
+            if "user" not in session or session.get("role") != "admin":
+                return jsonify({"error": "forbidden", "message": "需要管理员权限，请先登录"}), 403
             return f(*args, **kwargs)
         return decorated
 
@@ -123,6 +123,7 @@ def create_app() -> Flask:
         )
 
     @app.route("/api/incidents/resolve", methods=["POST"])
+    @admin_required
     def api_resolve_incident():
         """API: 标记事件为已解决"""
         data = request.get_json() or {}
@@ -141,6 +142,7 @@ def create_app() -> Flask:
         return jsonify({"ok": True, "resolved": changed})
 
     @app.route("/api/incidents/resolve-all", methods=["POST"])
+    @admin_required
     def api_resolve_all():
         """API: 标记所有未解决事件为已解决"""
         conn = sqlite3.connect(str(DB_PATH))
@@ -155,6 +157,7 @@ def create_app() -> Flask:
         return jsonify({"ok": True, "resolved": changed})
 
     @app.route("/api/incidents/delete", methods=["POST"])
+    @admin_required
     def api_delete_incident():
         """API: 删除单个事件"""
         data = request.get_json() or {}
