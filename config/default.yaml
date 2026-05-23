@@ -82,3 +82,18 @@ llm:
   model: "gpt-4o-mini"
   timeout: 30
   max_tokens: 1000
+
+# ===== 告警静默规则 =====
+silence:
+  enabled: true
+  rules:
+    # 深夜静默：23:00-07:00 只推送 CRITICAL，不推送 WARNING
+    - name: "夜间静默"
+      start_hour: 23
+      end_hour: 7
+      min_severity: "critical"   # 低于此级别的告警不推送
+    # 日志错误静默：已知无害的日志错误不告警
+    - name: "已知噪音过滤"
+      issue_type: "log_error"
+      title_contains: ["cloudflared", "WRN"]
+      action: "suppress"         # suppress = 完全抑制，不记录

@@ -374,6 +374,12 @@ class OpsAgent:
 
         logger.info("检测到 %d 个问题", len(issues))
 
+        # 2.5 静默过滤
+        issues = self._apply_silence_rules(issues)
+        if not issues:
+            logger.info("所有问题均被静默规则过滤")
+            return
+
         # 3. 分析
         try:
             analysis = self.fault_analyzer.analyze(issues)
@@ -447,6 +453,55 @@ class OpsAgent:
         # 自身健康检查（每10个周期检查一次）
         if self._check_count % 10 == 0:
             self._self_health_check()
+
+    def _apply_silence_rules(self, issues: list) -> list:
+        """应用静默规则过滤告警"""
+        silence_cfg = self.config.get("silence", {})
+        if not silence_cfg.get("enabled", False):
+            return issues
+
+        rules = silence_cfg.get("rules", [])
+        if not rules:
+            return issues
+
+        now = datetime.now()
+        filtered = []
+        suppressed_count = 0
+
+        for issue in issues:
+            silenced = False
+            for rule in rules:
+                # 时间段规则
+                if "start_hour" in rule and "end_hour" in rule:
+                    start = rule["start_hour"]
+                    end = rule["end_hour"]
+                    current_hour = now.hour
+                    in_window = (current_hour >= start) or (current_hour < end) if start > end else (start <= current_hour < end)
+                    if in_window:
+                        min_sev = rule.get("min_severity", "critical")
+                        sev_order = {"info": 0, "warning": 1, "critical": 2}
+                        if sev_order.get(issue.severity.value, 0) < sev_order.get(min_sev, 2):
+                            silenced = True
+                            break
+
+                # 问题类型 + 标题匹配规则
+                if "issue_type" in rule:
+                    if issue.issue_type.value != rule["issue_type"]:
+                        continue
+                    title_patterns = rule.get("title_contains", [])
+                    if title_patterns and any(p.lower() in issue.title.lower() for p in title_patterns):
+                        if rule.get("action") == "suppress":
+                            silenced = True
+                            break
+
+            if silenced:
+                suppressed_count += 1
+            else:
+                filtered.append(issue)
+
+        if suppressed_count > 0:
+            logger.info("静默规则过滤掉 %d 个问题", suppressed_count)
+        return filtered
 
     def _self_health_check(self) -> None:
         """检查 OpsAgent 自身健康状态"""
