@@ -203,6 +203,42 @@
         @keyframes toastIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
         @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateX(40px); } }
 
+        /* 确认弹窗 */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 10000;
+            display: flex; align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .modal-box {
+            background: var(--card-bg); border: 1px solid var(--border);
+            border-radius: 16px; padding: 28px; width: 380px; max-width: 90vw;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            animation: modalIn 0.25s ease;
+        }
+        .modal-icon { font-size: 36px; text-align: center; margin-bottom: 12px; }
+        .modal-title { font-size: 17px; font-weight: 600; text-align: center; margin-bottom: 8px; }
+        .modal-message { font-size: 13px; color: var(--text-secondary); text-align: center; margin-bottom: 24px; line-height: 1.6; }
+        .modal-actions { display: flex; gap: 10px; justify-content: center; }
+        .modal-btn {
+            padding: 8px 24px; border-radius: 8px; border: none;
+            font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+        }
+        .modal-btn-cancel {
+            background: var(--bg-tertiary); color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+        .modal-btn-cancel:hover { background: var(--border); }
+        .modal-btn-confirm {
+            background: var(--accent); color: #fff;
+        }
+        .modal-btn-confirm:hover { background: var(--accent-hover); transform: scale(1.02); }
+        .modal-btn-danger {
+            background: var(--danger); color: #fff;
+        }
+        .modal-btn-danger:hover { opacity: 0.9; transform: scale(1.02); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
         /* 赛博朋克特殊效果 */
         [data-theme="cyberpunk"] .sidebar .logo span {
             text-shadow: 0 0 10px rgba(255,0,255,0.5);
@@ -267,6 +303,33 @@
     </div>
 
     <script>
+        // 全局确认弹窗
+        function showConfirm(opts) {
+            if (typeof opts === 'string') opts = { message: opts };
+            var title = opts.title || '确认操作';
+            var message = opts.message || '';
+            var type = opts.type || 'confirm'; // confirm | danger
+            var icon = opts.icon || (type === 'danger' ? '⚠️' : '❓');
+            var confirmText = opts.confirmText || '确定';
+            var cancelText = opts.cancelText || '取消';
+            return new Promise(function(resolve) {
+                var overlay = document.createElement('div');
+                overlay.className = 'modal-overlay';
+                overlay.innerHTML = '<div class="modal-box">'
+                    + '<div class="modal-icon">' + icon + '</div>'
+                    + '<div class="modal-title">' + title + '</div>'
+                    + '<div class="modal-message">' + message + '</div>'
+                    + '<div class="modal-actions">'
+                    + '<button class="modal-btn modal-btn-cancel" id="modalCancel">' + cancelText + '</button>'
+                    + '<button class="modal-btn ' + (type === 'danger' ? 'modal-btn-danger' : 'modal-btn-confirm') + '" id="modalConfirm">' + confirmText + '</button>'
+                    + '</div></div>';
+                document.body.appendChild(overlay);
+                overlay.querySelector('#modalCancel').onclick = function() { overlay.remove(); resolve(false); };
+                overlay.querySelector('#modalConfirm').onclick = function() { overlay.remove(); resolve(true); };
+                overlay.onclick = function(e) { if (e.target === overlay) { overlay.remove(); resolve(false); } };
+            });
+        }
+
         // 全局 Toast 提示
         function showToast(message, type) {
             type = type || 'info';

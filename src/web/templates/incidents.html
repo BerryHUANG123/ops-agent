@@ -96,6 +96,8 @@
 
 <script>
 async function resolveOne(id) {
+    const ok = await showConfirm({ message: '确定将此事件标记为已解决？', icon: '✅', confirmText: '标记解决' });
+    if (!ok) return;
     const res = await fetch('/api/incidents/resolve', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -112,7 +114,8 @@ async function resolveOne(id) {
 }
 
 async function resolveAll() {
-    if (!confirm('确定将所有未解决事件标记为已解决？')) return;
+    const ok = await showConfirm({ title: '批量解决', message: '确定将所有未解决事件标记为已解决？<br>此操作不可撤销。', icon: '✅', confirmText: '全部解决' });
+    if (!ok) return;
     const res = await fetch('/api/incidents/resolve-all', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'}
@@ -125,7 +128,8 @@ async function resolveAll() {
 }
 
 async function deleteOne(id) {
-    if (!confirm('确定删除此事件？')) return;
+    const ok = await showConfirm({ title: '删除事件', message: '确定删除此事件？<br>删除后无法恢复。', type: 'danger', icon: '🗑️', confirmText: '删除' });
+    if (!ok) return;
     const res = await fetch('/api/incidents/delete', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
