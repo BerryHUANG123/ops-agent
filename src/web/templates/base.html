@@ -269,12 +269,14 @@
             <a href="/config" class="{% if request.path == '/config' %}active{% endif %}">
                 <span class="icon">⚙️</span> 配置
             </a>
+            {% if session.get('user') and session.get('user') != 'guest' %}
             <a href="/audit" class="{% if request.path == '/audit' %}active{% endif %}">
                 <span class="icon">📝</span> 审计日志
             </a>
             <a href="/health" class="{% if request.path == '/health' %}active{% endif %}">
                 <span class="icon">💚</span> 健康状态
             </a>
+            {% endif %}
         </nav>
         <div class="server-info">
             <div class="name">{{ server_name }}</div>

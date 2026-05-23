@@ -55,6 +55,17 @@ def create_app() -> Flask:
             return f(*args, **kwargs)
         return decorated
 
+    # 真正要求登录的装饰器（健康/进程/网络等敏感页面）
+    def auth_required(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            if not app.config["AUTH_ENABLED"]:
+                return f(*args, **kwargs)
+            if "user" not in session:
+                return jsonify({"error": "unauthorized", "message": "请先登录"}), 401
+            return f(*args, **kwargs)
+        return decorated
+
     def admin_required(f):
         @wraps(f)
         def decorated(*args, **kwargs):
@@ -219,7 +230,7 @@ def create_app() -> Flask:
         return report_path.read_text(encoding="utf-8")
 
     @app.route("/health")
-    @login_required
+    @auth_required
     def health_page():
         """健康状态页面"""
         return render_template("health.html", server_name=_get_server_name())
@@ -276,6 +287,7 @@ def create_app() -> Flask:
         )
 
     @app.route("/api/network")
+    @auth_required
     def api_network():
         """API: 网络连接信息"""
         from src.collectors.network_collector import NetworkCollector
@@ -295,6 +307,7 @@ def create_app() -> Flask:
         })
 
     @app.route("/api/processes")
+    @auth_required
     def api_processes():
         """API: 进程资源占用 Top N"""
         n = request.args.get("limit", 15, type=int)
@@ -317,6 +330,7 @@ def create_app() -> Flask:
         return jsonify(procs[:n])
 
     @app.route("/api/disk/prediction")
+    @auth_required
     def api_disk_prediction():
         """API: 磁盘增长趋势预测"""
         if not DB_PATH.exists():
@@ -388,6 +402,7 @@ def create_app() -> Flask:
         return jsonify(result)
 
     @app.route("/api/health")
+    @auth_required
     def api_health():
         """API: OpsAgent 自身健康状态"""
         import psutil as _psutil
