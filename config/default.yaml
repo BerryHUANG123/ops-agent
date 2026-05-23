@@ -1,0 +1,73 @@
+server:
+  name: "j1900-server"
+  check_interval: 60  # 秒
+
+collectors:
+  cpu_threshold: 85
+  memory_threshold: 90
+  disk_threshold: 85
+  load_multiplier: 2.0  # load_per_cpu 超过此倍数告警
+
+services:
+  watch:
+    - name: sshd
+      process: sshd
+    - name: nginx
+      process: nginx
+    - name: docker
+      process: dockerd
+
+logs:
+  paths:
+    - /var/log/syslog
+    - /var/log/auth.log
+  error_patterns:
+    - "error"
+    - "critical"
+    - "fatal"
+    - "oom"
+    - "killed"
+    - "segfault"
+  max_lines_per_check: 1000
+
+remediation:
+  enabled: true
+  allowed_actions:
+    - restart_service
+    - clear_logs
+    - kill_process
+  max_log_size_mb: 500
+  log_cleanup_paths:
+    - /var/log/*.log.1
+    - /tmp/ops-agent-*
+
+report:
+  output_dir: /home/huangjinyang/.openclaw/workspace/ops-agent/reports
+  format: html
+  keep_days: 30
+  schedule: ""        # 每日定时生成，格式 "HH:MM"，如 "08:00"，留空则按 interval
+  interval_minutes: 1440  # 间隔生成（默认每天一次）
+
+memory:
+  db_path: /home/huangjinyang/.openclaw/workspace/ops-agent/data/ops_agent.db
+  max_records: 10000
+
+# ===== 告警通知 =====
+notifier:
+  enabled: false  # 启用后填写 webhook_url
+  feishu:
+    webhook_url: ""  # 飞书自定义机器人 Webhook URL
+    secret: ""  # 签名密钥（可选）
+  # 告警合并：短时间内多个告警合并为一条消息
+  alert_merge:
+    enabled: true
+    window_seconds: 60  # 合并时间窗口
+
+# ===== LLM 智能分析 =====
+llm:
+  enabled: false
+  api_key: ""         # 或设置环境变量 OPENAI_API_KEY
+  base_url: "https://api.openai.com/v1"
+  model: "gpt-4o-mini"
+  timeout: 30
+  max_tokens: 1000

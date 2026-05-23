@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>巡检报告 - {{ server_name }} - {{ report_time }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+            background: #f0f2f5; color: #333; line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff; padding: 30px; border-radius: 12px; margin-bottom: 24px;
+        }
+        .header h1 { font-size: 24px; margin-bottom: 8px; }
+        .header .meta { font-size: 14px; color: #a0aec0; }
+        .card {
+            background: #fff; border-radius: 10px; padding: 24px;
+            margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .card h2 {
+            font-size: 18px; color: #1a1a2e; margin-bottom: 16px;
+            padding-bottom: 10px; border-bottom: 2px solid #e2e8f0;
+        }
+        /* 概览卡片网格 */
+        .overview-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px; margin-bottom: 20px;
+        }
+        .stat-card {
+            background: #fff; border-radius: 10px; padding: 20px;
+            text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .stat-card .label { font-size: 13px; color: #718096; margin-bottom: 4px; }
+        .stat-card .value { font-size: 28px; font-weight: 700; }
+        .stat-card .unit { font-size: 14px; color: #a0aec0; }
+        .value-normal { color: #38a169; }
+        .value-warning { color: #d69e2e; }
+        .value-critical { color: #e53e3e; }
+        /* CSS 柱状图 */
+        .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 120px; margin: 10px 0; }
+        .bar-group { flex: 1; display: flex; flex-direction: column; align-items: center; }
+        .bar {
+            width: 100%; max-width: 30px; border-radius: 4px 4px 0 0;
+            transition: height 0.3s; position: relative;
+        }
+        .bar-cpu { background: linear-gradient(180deg, #4299e1, #3182ce); }
+        .bar-mem { background: linear-gradient(180deg, #48bb78, #38a169); }
+        .bar-disk { background: linear-gradient(180deg, #ed8936, #dd6b20); }
+        .bar-label { font-size: 10px; color: #a0aec0; margin-top: 4px; }
+        .bar-value { font-size: 10px; color: #4a5568; margin-bottom: 2px; }
+        .chart-legend {
+            display: flex; gap: 20px; justify-content: center;
+            margin-top: 10px; font-size: 13px;
+        }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+        .legend-dot {
+            width: 12px; height: 12px; border-radius: 3px;
+        }
+        /* 表格 */
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            padding: 10px 14px; text-align: left; border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+        th { background: #f7fafc; font-weight: 600; color: #4a5568; }
+        tr:hover { background: #f7fafc; }
+        .badge {
+            display: inline-block; padding: 2px 10px; border-radius: 12px;
+            font-size: 12px; font-weight: 600;
+        }
+        .badge-critical { background: #fed7d7; color: #c53030; }
+        .badge-warning { background: #fefcbf; color: #975a16; }
+        .badge-info { background: #bee3f8; color: #2b6cb0; }
+        .badge-success { background: #c6f6d5; color: #276749; }
+        .badge-failed { background: #fed7d7; color: #c53030; }
+        /* 建议区域 */
+        .suggestion-list { list-style: none; padding: 0; }
+        .suggestion-list li {
+            padding: 12px 16px; margin-bottom: 8px; border-radius: 8px;
+            background: #ebf8ff; border-left: 4px solid #4299e1; font-size: 14px;
+        }
+        .footer {
+            text-align: center; padding: 20px; color: #a0aec0; font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <h1>🔍 系统巡检报告</h1>
+        <div class="meta">
+            服务器: {{ server_name }} &nbsp;|&nbsp;
+            生成时间: {{ report_time }} &nbsp;|&nbsp;
+            运行时间: {{ uptime }}
+        </div>
+    </div>
+
+    <!-- 系统概览 -->
+    <div class="overview-grid">
+        <div class="stat-card">
+            <div class="label">CPU 使用率</div>
+            <div class="value {% if latest and latest.cpu_percent >= 85 %}value-critical{% elif latest and latest.cpu_percent >= 70 %}value-warning{% else %}value-normal{% endif %}">
+                {{ "%.1f"|format(latest.cpu_percent) if latest else "N/A" }}
+            </div>
+            <div class="unit">%</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">内存使用率</div>
+            <div class="value {% if latest and latest.memory_percent >= 90 %}value-critical{% elif latest and latest.memory_percent >= 75 %}value-warning{% else %}value-normal{% endif %}">
+                {{ "%.1f"|format(latest.memory_percent) if latest else "N/A" }}
+            </div>
+            <div class="unit">%</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">磁盘使用率</div>
+            <div class="value {% if latest and latest.disk_percent >= 85 %}value-critical{% elif latest and latest.disk_percent >= 70 %}value-warning{% else %}value-normal{% endif %}">
+                {{ "%.1f"|format(latest.disk_percent) if latest else "N/A" }}
+            </div>
+            <div class="unit">%</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">系统负载 (1m)</div>
+            <div class="value {% if latest and latest.load_1m > latest.cpu_count * 2 %}value-critical{% elif latest and latest.load_1m > latest.cpu_count %}value-warning{% else %}value-normal{% endif %}">
+                {{ latest.load_1m if latest else "N/A" }}
+            </div>
+            <div class="unit">/ {{ latest.cpu_count if latest else "?" }} CPU</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">告警数</div>
+            <div class="value {% if critical_count > 0 %}value-critical{% elif warning_count > 0 %}value-warning{% else %}value-normal{% endif %}">
+                {{ issues|length }}
+            </div>
+            <div class="unit">Critical: {{ critical_count }} / Warning: {{ warning_count }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="label">处置动作</div>
+            <div class="value value-normal">{{ actions|length }}</div>
+            <div class="unit">成功: {{ success_actions }} / 失败: {{ failed_actions }}</div>
+        </div>
+    </div>
+
+    <!-- 指标趋势 -->
+    <div class="card">
+        <h2>📈 指标趋势</h2>
+        <p style="font-size:13px; color:#718096; margin-bottom:12px;">CPU / 内存 / 磁盘使用率（最近采样）</p>
+        <div class="bar-chart">
+            {% for i in range(trend_data.timestamps|length) %}
+            <div class="bar-group">
+                <div class="bar bar-cpu" style="height: {{ (trend_data.cpu[i] * 1.2)|int }}px;" title="CPU: {{ trend_data.cpu[i] }}%"></div>
+                <div class="bar-label">{{ trend_data.timestamps[i] }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#4299e1;"></div> CPU</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#48bb78;"></div> 内存</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ed8936;"></div> 磁盘</div>
+        </div>
+    </div>
+
+    <!-- 告警列表 -->
+    <div class="card">
+        <h2>🚨 告警列表</h2>
+        {% if issues %}
+        <table>
+            <thead>
+                <tr>
+                    <th>级别</th>
+                    <th>类型</th>
+                    <th>标题</th>
+                    <th>描述</th>
+                    <th>时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for issue in issues %}
+                <tr>
+                    <td>
+                        <span class="badge badge-{{ issue.severity.value }}">{{ issue.severity.value|upper }}</span>
+                    </td>
+                    <td>{{ issue.issue_type.value }}</td>
+                    <td><strong>{{ issue.title }}</strong></td>
+                    <td>{{ issue.description[:100] }}</td>
+                    <td>{{ issue.timestamp }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#38a169; font-size:15px; padding:20px; text-align:center;">✅ 未发现异常，系统运行正常</p>
+        {% endif %}
+    </div>
+
+    <!-- 处置记录 -->
+    <div class="card">
+        <h2>🔧 处置记录</h2>
+        {% if actions %}
+        <table>
+            <thead>
+                <tr>
+                    <th>状态</th>
+                    <th>动作类型</th>
+                    <th>目标</th>
+                    <th>命令</th>
+                    <th>输出</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for result in actions %}
+                <tr>
+                    <td>
+                        {% if result.success %}
+                        <span class="badge badge-success">成功</span>
+                        {% else %}
+                        <span class="badge badge-failed">失败</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ result.action.action_type.value }}</td>
+                    <td>{{ result.action.target }}</td>
+                    <td><code>{{ result.action.command[:60] }}</code></td>
+                    <td>{{ result.output[:100] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#718096; font-size:15px; padding:20px; text-align:center;">无处置动作</p>
+        {% endif %}
+    </div>
+
+    <!-- 风险建议 -->
+    <div class="card">
+        <h2>💡 风险建议</h2>
+        {% if suggestions %}
+        <ul class="suggestion-list">
+            {% for suggestion in suggestions %}
+            <li>{{ suggestion }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p style="color:#38a169; font-size:15px; padding:20px; text-align:center;">当前无风险建议</p>
+        {% endif %}
+    </div>
+
+    <!-- 页脚 -->
+    <div class="footer">
+        OpsAgent 轻量级运维监控 · 自动生成于 {{ report_time }}
+    </div>
+</div>
+</body>
+</html>
