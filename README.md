@@ -14,6 +14,7 @@
 | 飞书告警 | Webhook 实时推送 | 三级颜色 + 告警合并 |
 | 定时报表 | 后台调度自动生成 | 每日定时或自定义间隔 |
 | 记忆复盘 | SQLite 事件存储 | 历史查询 + 统计分析 |
+| **Web UI** | **浏览器管理界面** | **仪表盘/告警/报告/配置** |
 
 ---
 
@@ -51,6 +52,43 @@ python -m src.main --config /path/to/my-config.yaml
 bash scripts/setup_service.sh
 sudo systemctl start ops-agent
 sudo systemctl status ops-agent
+```
+
+---
+
+### Web UI 管理界面
+
+OpsAgent 内置轻量 Web UI，提供浏览器端可视化管理。
+
+```bash
+# 启动 Web UI
+python3 -m src.web.run --port 8080
+
+# 自定义地址和端口
+python3 -m src.web.run --host 127.0.0.1 --port 9090
+```
+
+启动后访问 `http://服务器IP:8080`
+
+**功能页面：**
+
+- **📊 仪表盘** — 实时系统指标（CPU/内存/磁盘/负载/网络），服务状态，Docker 容器状态，事件统计
+- **🚨 告警记录** — 所有历史告警，分页查看
+- **📋 巡检报告** — 报告列表，点击直接在浏览器中查看 HTML 报告
+- **⚙️ 配置** — 查看当前运行配置，模块启用状态
+
+**特性：**
+- 暗色主题，响应式布局
+- 30 秒自动刷新仪表盘
+- API 端点：`/api/metrics`、`/api/incidents`、`/api/stats`
+- 内存占用 ~18MB
+
+**作为 systemd 服务运行：**
+
+```bash
+systemctl --user start ops-agent-web
+systemctl --user status ops-agent-web
+systemctl --user stop ops-agent-web
 ```
 
 ---
@@ -357,6 +395,7 @@ ops-agent/
 │   ├── notifiers/               # 告警通知（飞书）
 │   ├── scheduler/               # 定时调度
 │   ├── memory/                  # 记忆复盘（SQLite）
+│   ├── web/                     # Web UI（Flask）
 │   ├── models.py                # 数据模型定义
 │   └── main.py                  # 主入口
 ├── tests/                       # 单元测试
@@ -376,4 +415,5 @@ ops-agent/
 - SQLite — 事件存储（Python 内置，无需额外服务）
 - Jinja2 — 报表模板渲染
 - PyYAML — 配置管理
+- Flask — Web UI
 - systemd — 服务管理
