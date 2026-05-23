@@ -6,15 +6,24 @@
 
 | 模块 | 功能 | 说明 |
 |------|------|------|
-| 数据采集 | 系统指标 + 服务进程 + 日志 + Docker | psutil 低占用采集 |
-| 异常判别 | 静态阈值 + 自适应动态阈值 | 2σ/3σ 自动学习基线 |
+| 数据采集 | 系统指标 + 服务进程 + 日志 + Docker + SMART + 网络 | psutil 低占用采集 |
+| 异常判别 | 静态阈值 + 自适应动态阈值 + 告警去重 + 自动解决 | 2σ/3σ 自动学习基线 |
 | 故障分析 | 规则引擎 + LLM 深度分析 | 根因推断 + 关联分析 |
-| 自动处置 | 白名单安全修复 | 服务重启/日志清理/杀僵尸进程 |
+| 自动处置 | 白名单安全修复 + 审计日志 | 服务重启/日志清理/杀僵尸进程 |
 | 巡检报表 | HTML 可视化报告 | 柱状图趋势 + 告警汇总 |
-| 飞书告警 | Webhook 实时推送 | 三级颜色 + 告警合并 |
+| 飞书告警 | Webhook 实时推送 | 三级颜色 + 告警合并 + 交互按钮 |
+| 邮件通知 | SMTP HTML 邮件 | 飞书备用通道 |
 | 定时报表 | 后台调度自动生成 | 每日定时或自定义间隔 |
 | 记忆复盘 | SQLite 事件存储 | 历史查询 + 统计分析 |
-| **Web UI** | **浏览器管理界面** | **仪表盘/告警/报告/配置** |
+| Web UI | 浏览器管理界面 | 7 个页面 + 6 套主题 + RBAC 权限 |
+| SMART 监控 | 磁盘健康检测 | 坏扇区/温度/通电时间 |
+| 网络监控 | 监听端口 + 活跃连接 | 可疑端口/进程检测 |
+| 进程监控 | Top N 资源占用 | CPU/内存排序 |
+| 磁盘预测 | 增长趋势分析 | 线性回归预测满盘日期 |
+| 告警静默 | 时间段/类型静默规则 | 深夜不刷屏 |
+| 自身健康 | Agent/Web 进程监控 | 内存超限自告警 |
+| 审计日志 | 操作全程记录 | 谁/何时/做了什么 |
+| RBAC | 角色权限控制 | admin/viewer 两级 |
 
 ---
 
@@ -28,6 +37,8 @@ bash scripts/install.sh
 安装脚本自动完成：检测 Python 3.10+ → 创建虚拟环境 → 安装依赖 → 创建数据目录
 
 ## 使用方式
+
+### 命令行启动
 
 ```bash
 cd ops-agent
@@ -46,7 +57,7 @@ python -m src.main --dry-run
 python -m src.main --config /path/to/my-config.yaml
 ```
 
-### 作为 systemd 服务运行
+### 作为 systemd 服务运行（推荐生产环境）
 
 ```bash
 bash scripts/setup_service.sh
@@ -72,16 +83,19 @@ python3 -m src.web.run --host 127.0.0.1 --port 9090
 
 **功能页面：**
 
-- **📊 仪表盘** — 实时系统指标（CPU/内存/磁盘/负载/网络），服务状态，Docker 容器状态，事件统计
-- **🚨 告警记录** — 所有历史告警，分页查看
+- **📊 仪表盘** — 实时系统指标（CPU/内存/磁盘/负载/网络），服务状态，Docker 容器状态，事件统计，10 秒自动刷新
+- **🚨 告警记录** — 所有历史告警，支持标记解决/删除/全部解决
 - **📋 巡检报告** — 报告列表，点击直接在浏览器中查看 HTML 报告
-- **⚙️ 配置** — 查看当前运行配置，模块启用状态
+- **⚙️ 配置** — 查看当前运行配置（敏感信息自动脱敏）
+- **📝 审计日志** — 所有自动处置操作记录（需登录）
+- **💚 健康状态** — 进程资源/监听端口/活跃连接/磁盘预测（需登录）
+- **🔐 登录** — RBAC 权限控制，admin/viewer 两级角色
 
 **特性：**
-- 暗色主题，响应式布局
-- 30 秒自动刷新仪表盘
-- API 端点：`/api/metrics`、`/api/incidents`、`/api/stats`
-- 内存占用 ~18MB
+- 暗色主题，6 套主题可切换（暗色/亮色/赛博朋克/海洋蓝/森林绿/樱花粉）
+- 全局 Toast 提示 + 现代化确认弹窗
+- API 端点：`/api/metrics`、`/api/incidents`、`/api/processes`、`/api/network`、`/api/health`
+- 内存占用 ~22MB
 
 **作为 systemd 服务运行：**
 
@@ -102,10 +116,12 @@ systemctl --user stop ops-agent-web
 **采集内容：**
 
 - **系统指标** — CPU 使用率、内存使用率、磁盘使用率、系统负载（1m/5m/15m）、网络流量、Uptime
-- **服务进程** — 检查指定服务（sshd、nginx、docker 等）是否在运行
-- **系统日志** — 增量读取日志文件，匹配错误关键词（error/critical/fatal/oom/segfault）
+- **服务进程** — 检查指定服务（sshd、docker 等）是否在运行
+- **系统日志** — 增量读取日志文件，匹配错误关键词，支持忽略模式过滤噪音
 - **Docker 容器** — 容器列表、运行状态、CPU/内存/网络/磁盘 IO、容器日志
 - **systemd journal** — 按 unit 和优先级过滤结构化日志
+- **SMART 磁盘** — 健康状态、待重映射扇区、温度、通电时间
+- **网络连接** — 监听端口、活跃连接、可疑端口检测
 
 **配置示例：**
 
@@ -119,8 +135,8 @@ services:
   watch:
     - name: sshd
       process: sshd
-    - name: nginx
-      process: nginx
+    - name: docker
+      process: dockerd
 
 logs:
   paths:
@@ -131,246 +147,170 @@ logs:
     - "critical"
     - "fatal"
     - "oom"
-```
+  ignore_patterns:
+    - "node["
+    - "ignoring stale"
 
-**效果：** Agent 每次巡检时生成一份包含所有指标的快照，为后续异常检测提供数据基础。对系统几乎无负载，psutil 直接读 `/proc`，不产生额外进程。
+docker:
+  skip_stopped: true
+  ignore_containers:
+    - hello-world
+```
 
 ---
 
 ### 2. 异常判别（Detectors）
 
-**做什么：** 对采集到的指标进行阈值判断，识别异常。
-
 **两种模式：**
 
 - **静态阈值** — 在配置文件中直接设定（如 CPU > 85% 告警）
-- **自适应阈值** — 基于历史数据自动计算，使用滑动窗口统计（均值 + 2σ 为 WARNING，均值 + 3σ 为 CRITICAL），样本不足时自动回退静态阈值
+- **自适应阈值** — 基于历史数据自动计算，使用滑动窗口统计（均值 + 2σ 为 WARNING，均值 + 3σ 为 CRITICAL）
 
-**检测项目：**
-
-| 指标 | WARNING | CRITICAL |
-|------|---------|----------|
-| CPU 使用率 | 超过动态阈值（默认 85%） | 超过 95% 或 3σ |
-| 内存使用率 | 超过动态阈值（默认 90%） | 超过 95% 或 3σ |
-| 磁盘使用率 | 超过动态阈值（默认 85%） | 超过 95% 或 3σ |
-| 系统负载 | per CPU 负载 > 2.0 | per CPU 负载 > 4.0 |
-| 服务状态 | — | 进程不存在 |
-| 日志错误 | 非致命错误关键词 | fatal/oom/segfault |
-| Docker 容器 | CPU/内存超限 | 容器停止/频繁重启 |
-
-**效果：** 每次巡检输出一份 Issue 列表，按严重程度分为 INFO / WARNING / CRITICAL。自适应阈值会随着运行时间增长越来越精准，减少误报。
+**告警去重：** 相同类型+标题的问题只记录一次，不重复入库。连续出现 10 次自动升级为 CRITICAL。问题消失后自动标记 resolved。
 
 ---
 
 ### 3. 故障分析（Analyzers）
 
-**做什么：** 对检测到的 Issue 进行根因推断和关联分析。
-
 **规则引擎分析：**
-- 内存使用率高 + 服务被 OOM Kill → 判定为 OOM 问题，建议加内存或限制进程
-- 磁盘满 + 日志文件过大 → 判定为日志膨胀，建议清理或轮转
-- 多个服务同时宕机 → 关联分析，可能是系统级故障
-- 趋势分析：对比历史数据，判断是突发还是渐进式恶化
+- 内存使用率高 + 服务被 OOM Kill → 判定为 OOM 问题
+- 磁盘满 + 日志文件过大 → 判定为日志膨胀
+- 多个服务同时宕机 → 关联分析
 
 **LLM 深度分析（可选）：**
-- 接入 OpenAI 兼容 API（支持 DeepSeek、本地 Ollama 等）
-- 对告警信息和日志片段进行智能分析
-- 输出结构化 JSON：根因推断 + 处置建议
-- 分析结果自动附加到飞书告警卡片
-
-**配置 LLM：**
 
 ```yaml
 llm:
   enabled: true
-  api_key: "sk-xxxx"                    # 或 export OPENAI_API_KEY=sk-xxxx
-  base_url: "https://api.openai.com/v1" # 改为 DeepSeek/Ollama 等
+  api_key: "sk-xxxx"
+  base_url: "https://api.openai.com/v1"  # 支持 DeepSeek/Ollama 等
   model: "gpt-4o-mini"
 ```
-
-**效果：** 告警不再是干巴巴的"CPU 过高"，而是附带根因分析和具体处置建议。开启 LLM 后，飞书告警卡片会多出一段 AI 分析结论。
 
 ---
 
 ### 4. 自动处置（Remediators）
 
-**做什么：** 根据分析结果自动执行修复操作。
-
-**白名单机制：** 只有配置中明确允许的操作才会执行，杜绝误操作。
-
-**支持的处置动作：**
+**白名单机制：** 只有配置中明确允许的操作才会执行。
 
 | 动作 | 说明 | 触发条件 |
 |------|------|----------|
 | `restart_service` | 通过 systemctl 重启服务 | 服务宕机 |
-| `clear_logs` | 轮转过大的日志文件（不删除） | 日志超过 max_log_size_mb |
+| `clear_logs` | 轮转过大的日志文件 | 日志超过 max_log_size_mb |
 | `kill_process` | 终止僵尸进程 | 检测到僵尸进程 |
 
-**安全特性：**
-- `dry_run` 模式：只输出会执行什么操作，不实际执行
-- 操作审计：每次处置都记录命令、输出、成功/失败
-- 白名单外的操作一律跳过
+所有处置操作自动记录到审计日志。
 
-**配置：**
+---
+
+### 5. SMART 磁盘监控
 
 ```yaml
-remediation:
-  enabled: true
-  allowed_actions:
-    - restart_service
-    - clear_logs
-    - kill_process
-  max_log_size_mb: 500
+# 自动检测：
+# - 磁盘健康状态 PASSED/FAILED
+# - 待重映射扇区 > 0 → 告警
+# - 重映射扇区 > 0 → 告警
+# - 温度 > 60°C → 告警
 ```
 
-**效果：** 服务挂了自动拉起来，日志爆了自动轮转。全程有审计日志，干了什么一目了然。
+需要 `smartmontools` 已安装，且 sudo 免密配置。
 
 ---
 
-### 5. 巡检报表（Reporters）
+### 6. 告警静默规则
 
-**做什么：** 生成 HTML 可视化巡检报告。
-
-**报表内容：**
-- 系统概览卡片（CPU/内存/磁盘/负载的当前值和阈值）
-- CSS 柱状图展示指标趋势
-- 告警列表（按严重程度排序）
-- 处置记录（执行了什么、成功与否）
-- 风险建议（基于当前状态的预防性建议）
-
-**效果：** 每次巡检生成一个独立的 HTML 文件，用浏览器打开即可查看。文件名格式：`inspection_{服务器名}_{时间戳}.html`
-
-**示例报告路径：** `reports/inspection_j1900-server_20260523_003546.html`
+```yaml
+silence:
+  enabled: true
+  rules:
+    - name: "夜间静默"
+      start_hour: 23
+      end_hour: 7
+      min_severity: "critical"
+    - name: "已知噪音过滤"
+      issue_type: "log_error"
+      title_contains: ["cloudflared", "WRN"]
+      action: "suppress"
+```
 
 ---
 
-### 6. 飞书告警（Notifiers）
+### 7. RBAC 权限控制
 
-**做什么：** 检测到异常时实时推送到飞书群聊。
+```yaml
+webui:
+  auth:
+    enabled: true
+    users:
+      admin:
+        password: "your-strong-password"
+        role: "admin"
+      guest:
+        password: "guest"
+        role: "viewer"
+```
 
-**告警卡片特性：**
-- 🔴 CRITICAL / 🟡 WARNING / 🔵 INFO 三级颜色区分
-- 告警详情：指标值、阈值、触发原因
-- 处置结果：自动修复了什么、成功与否
-- LLM 分析结论（如已开启）
-- 告警合并：60 秒窗口内的多个告警合并为一条消息，避免刷屏
+**权限模型：**
 
-**配置步骤：**
+| 页面/接口 | 未登录 | viewer | admin |
+|-----------|--------|--------|-------|
+| 仪表盘/告警/报告 | ✅ | ✅ | ✅ |
+| 配置（脱敏） | ✅ | ✅ | ✅ |
+| 健康/进程/网络 | ❌ | ❌ | ✅ |
+| 审计日志 | ❌ | ❌ | ✅ |
+| 解决/删除告警 | ❌ | ❌ | ✅ |
 
-1. 飞书群聊 → 设置 → 群机器人 → 添加「自定义机器人」
-2. 复制 Webhook URL
-3. 编辑配置：
+---
+
+### 8. 飞书告警
 
 ```yaml
 notifier:
   enabled: true
   feishu:
     webhook_url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxxxx"
-    secret: ""  # 签名密钥，不验签可留空
   alert_merge:
     enabled: true
     window_seconds: 60
 ```
 
-**推送时机：**
-- 异常检测后立即推送告警
-- 处置完成后推送处置结果
-- 每日巡检摘要推送（需开启定时报表）
+告警卡片包含交互按钮：已知晓 / 静默1小时 / 查看报告。
 
 ---
 
-### 7. 定时报表（Scheduler）
-
-**做什么：** 后台自动生成巡检报告，不阻塞主循环。
-
-**两种调度模式：**
-- **每日定时** — 指定时间点，如每天 08:00 生成
-- **间隔触发** — 自定义分钟数，如每 1440 分钟（一天）
-
-**配置：**
+### 9. 邮件告警
 
 ```yaml
-report:
-  schedule: "08:00"        # 每天早上 8 点生成
-  # 或
-  interval_minutes: 720    # 每 12 小时生成一次
+notifier:
+  email:
+    enabled: true
+    smtp_host: "smtp.qq.com"
+    smtp_port: 465
+    username: "your-email@qq.com"
+    password: "your-auth-code"
+    from_addr: "your-email@qq.com"
+    to_addrs: ["admin@example.com"]
 ```
-
-**效果：** 自动生成报告文件，开启飞书通知后会同步推送报告摘要。
 
 ---
 
-### 8. 记忆复盘（Memory）
+## 公网访问
 
-**做什么：** 用 SQLite 持久化所有事件记录，支持历史查询和统计分析。
+OpsAgent 支持通过 Cloudflare Tunnel 暴露到公网：
 
-**记录内容：**
-- 每个 Issue 的完整信息（类型、严重程度、描述、指标值）
-- 根因分析结果
-- 处置动作和执行结果
-- 事件持续时间
-- 经验教训（lessons）
+```bash
+# 安装 cloudflared
+# 启动快速隧道
+cloudflared tunnel --url http://localhost:8080
+```
 
-**统计能力：**
-- 总事件数、各类型事件分布
-- 解决率（resolved / total）
-- 常见故障类型排名
-- 按时间范围查询历史事件
-
-**效果：** 运行时间越长，积累的故障案例越多。Agent 可以参考历史案例优化后续处理策略。数据库文件：`data/ops_agent.db`
+**安全建议：**
+- 启用 RBAC 登录
+- 修改默认密码
+- 健康/进程等敏感页面需登录才能访问
+- 配置页面敏感信息自动脱敏
 
 ---
-
-## 配置文件完整参考
-
-配置文件位于 `config/default.yaml`，所有字段均有注释。核心配置项：
-
-```yaml
-server:
-  name: "my-server"              # 服务器名称
-  check_interval: 60             # 巡检间隔（秒）
-
-collectors:
-  cpu_threshold: 85              # CPU 静态告警阈值（%）
-  memory_threshold: 90           # 内存静态告警阈值（%）
-  disk_threshold: 85             # 磁盘静态告警阈值（%）
-  load_multiplier: 2.0           # 负载告警倍数（per CPU）
-
-services:                        # 监控的服务列表
-  watch:
-    - name: sshd
-      process: sshd
-
-logs:                            # 日志监控
-  paths: [/var/log/syslog]
-  error_patterns: ["error", "critical", "fatal", "oom"]
-  max_lines_per_check: 1000
-
-remediation:                     # 自动处置
-  enabled: true
-  allowed_actions: [restart_service, clear_logs, kill_process]
-  max_log_size_mb: 500
-
-notifier:                        # 飞书告警
-  enabled: false
-  feishu:
-    webhook_url: ""
-
-llm:                             # LLM 智能分析
-  enabled: false
-  api_key: ""
-  base_url: "https://api.openai.com/v1"
-  model: "gpt-4o-mini"
-
-report:                          # 巡检报表
-  output_dir: ./reports
-  schedule: ""
-  interval_minutes: 1440
-
-memory:                          # 记忆存储
-  db_path: data/ops_agent.db
-  max_records: 10000
-```
 
 ## 运行测试
 
@@ -387,12 +327,12 @@ ops-agent/
 ├── config/
 │   └── default.yaml             # 默认配置
 ├── src/
-│   ├── collectors/              # 数据采集（系统/Docker/journal/日志）
-│   ├── detectors/               # 异常判别（静态阈值/自适应阈值）
+│   ├── collectors/              # 数据采集（系统/Docker/journal/日志/SMART/网络）
+│   ├── detectors/               # 异常判别（静态阈值/自适应阈值/去重）
 │   ├── analyzers/               # 故障分析（规则引擎/LLM）
 │   ├── remediators/             # 自动处置
 │   ├── reporters/               # 巡检报表 + HTML 模板
-│   ├── notifiers/               # 告警通知（飞书）
+│   ├── notifiers/               # 告警通知（飞书/邮件）
 │   ├── scheduler/               # 定时调度
 │   ├── memory/                  # 记忆复盘（SQLite）
 │   ├── web/                     # Web UI（Flask）
@@ -417,3 +357,5 @@ ops-agent/
 - PyYAML — 配置管理
 - Flask — Web UI
 - systemd — 服务管理
+- smartmontools — SMART 磁盘监控
+- cloudflared — 公网穿透
