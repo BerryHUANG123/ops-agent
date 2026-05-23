@@ -1,6 +1,7 @@
 """OpsAgent 主入口 — 轻量级无人值守运维监控智能 Agent"""
 import logging
 import os
+import re
 import signal
 import sys
 import time
@@ -313,6 +314,18 @@ class OpsAgent:
                     )
                     for e in journal_entries
                 ]
+                # 应用日志忽略模式到 journal 日志
+                ignore_pats = self.config.get("logs", {}).get("ignore_patterns", [])
+                if ignore_pats:
+                    compiled_ignore = [re.compile(re.escape(p), re.IGNORECASE) for p in ignore_pats]
+                    before_count = len(journal_logs)
+                    journal_logs = [
+                        entry for entry in journal_logs
+                        if not any(ip.search(entry.message) for ip in compiled_ignore)
+                    ]
+                    filtered = before_count - len(journal_logs)
+                    if filtered > 0:
+                        logger.debug("journal 日志过滤掉 %d 条噪音", filtered)
                 if journal_logs:
                     logger.info("journal 采集到 %d 条错误日志", len(journal_logs))
         except Exception as e:
@@ -397,19 +410,35 @@ class OpsAgent:
         actions: list,
         duration: float,
     ) -> None:
-        """将事件记录到 SQLite 记忆存储
-
-        Args:
-            issues: 检测到的问题列表
-            analysis: 分析结果
-            actions: 处置结果列表
-            duration: 本轮检查耗时
-        """
+        """将事件记录到 SQLite 记忆存储（含去重和自动解决）"""
         root_causes = analysis.get("root_causes", [])
         suggestions = analysis.get("suggestions", [])
 
+        # 1. 获取当前未解决事件的指纹
+        unresolved = self.memory.get_unresolved_fingerprints()
+
+        # 2. 当前检测到的指纹集合
+        current_fingerprints = set()
+        new_count = 0
+        skip_count = 0
+
         for issue in issues:
-            # 找到对应的根因
+            current_fingerprints.add(issue.id)
+
+            # 去重：如果已存在未解决的相同事件，跳过
+            if issue.id in unresolved:
+                skip_count += 1
+                # 更新发生时间
+                self.memory.update_occurrence(issue.id)
+                # 连续出现 10 次以上，升级为 CRITICAL
+                existing = unresolved[issue.id]
+                if existing["count"] >= 10 and existing["severity"] != "critical":
+                    self.memory.escalate_issue(issue.id, "critical")
+                    logger.warning("事件升级为 CRITICAL: %s (连续出现%d次)", issue.title, existing["count"])
+                continue
+
+            # 新事件，记录
+            new_count += 1
             root_cause = "未分析"
             for rc in root_causes:
                 if isinstance(rc, dict):
@@ -417,7 +446,6 @@ class OpsAgent:
                         root_cause = rc.get("root_cause", str(rc.get("possible_causes", ["未知"])))
                         break
 
-            # 找到对应的处置动作
             action_taken = None
             for action_result in actions:
                 if action_result.action.issue_id == issue.id:
@@ -433,6 +461,17 @@ class OpsAgent:
                 lessons="; ".join(suggestions[:3]) if suggestions else "",
             )
             self.memory.save_incident(record)
+
+        # 3. 自动解决：标记本次未出现的旧事件为已解决
+        disappeared = set(unresolved.keys()) - current_fingerprints
+        resolved_count = 0
+        if disappeared:
+            resolved_count = self.memory.resolve_batch(list(disappeared))
+            if resolved_count > 0:
+                logger.info("自动解决 %d 个已消失的事件", resolved_count)
+
+        if new_count > 0 or skip_count > 0 or resolved_count > 0:
+            logger.info("事件统计: 新增=%d, 重复跳过=%d, 自动解决=%d", new_count, skip_count, resolved_count)
 
         # 定期清理过期记录
         max_records = self.config.get("memory", {}).get("max_records", 10000)

@@ -37,6 +37,9 @@ logs:
   ignore_patterns:
     - "node["       # OpenClaw/node 进程日志
     - "ignoring stale"
+    - "a password is required"  # sudo 自身产生的 auth 日志
+    - "conversation failed"
+    - "auth could not identify password"
 
 remediation:
   enabled: true

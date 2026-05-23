@@ -2,6 +2,7 @@
 import hashlib
 import logging
 import time
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from src.detectors.adaptive_threshold import AdaptiveThreshold, ThresholdStats
@@ -287,6 +288,13 @@ class AnomalyDetector:
         logger.info("检测完成，发现 %d 个问题", len(issues))
         return issues
 
+    @staticmethod
+    def _make_fingerprint(issue_type: str, title: str) -> str:
+        """生成问题指纹，用于去重。相同类型+标题 = 同一问题"""
+        import hashlib
+        raw = f"{issue_type}:{title}"
+        return hashlib.md5(raw.encode()).hexdigest()[:12]
+
     def _make_issue(
         self,
         severity: Severity,
@@ -295,23 +303,11 @@ class AnomalyDetector:
         description: str,
         details: dict,
     ) -> Issue:
-        """生成 Issue 对象，ID 基于类型和时间戳哈希
-
-        Args:
-            severity: 严重级别
-            issue_type: 问题类型
-            title: 标题
-            description: 描述
-            details: 详细信息
-
-        Returns:
-            Issue: 问题对象
-        """
-        raw = f"{issue_type.value}:{time.time()}"
-        issue_id = hashlib.md5(raw.encode()).hexdigest()[:12]
+        """生成 Issue 对象，ID 基于类型+标题哈希（稳定去重）"""
+        fingerprint = self._make_fingerprint(issue_type.value, title)
         return Issue(
-            id=issue_id,
-            timestamp=time.time(),
+            id=fingerprint,
+            timestamp=datetime.now(),
             severity=severity,
             issue_type=issue_type,
             title=title,

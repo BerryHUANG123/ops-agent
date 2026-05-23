@@ -129,6 +129,86 @@ class IncidentMemory:
         logger.info("事件记录已保存: id=%d, issue_id=%s", record_id, record.issue.id)
         return record_id  # type: ignore
 
+    def get_unresolved_fingerprints(self) -> dict:
+        """获取所有未解决事件的指纹，返回 {issue_id: {title, severity, created_at, count}}"""
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            SELECT issue_id, title, severity, created_at,
+                   COUNT(*) as occurrence_count
+            FROM incidents
+            WHERE resolved = 0
+            GROUP BY issue_id
+            ORDER BY created_at DESC
+        """)
+        result = {}
+        for row in cursor.fetchall():
+            result[row["issue_id"]] = {
+                "title": row["title"],
+                "severity": row["severity"],
+                "created_at": row["created_at"],
+                "count": row["occurrence_count"],
+            }
+        return result
+
+    def update_occurrence(self, issue_id: str) -> None:
+        """更新已有事件的发生次数和时间"""
+        now = time.time()
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            UPDATE incidents SET updated_at = ?
+            WHERE issue_id = ? AND resolved = 0
+        """, (now, issue_id))
+        self._conn.commit()
+
+    def escalate_issue(self, issue_id: str, new_severity: str) -> None:
+        """升级事件严重程度"""
+        now = time.time()
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            UPDATE incidents SET severity = ?, updated_at = ?
+            WHERE issue_id = ? AND resolved = 0
+        """, (new_severity, now, issue_id))
+        self._conn.commit()
+
+    def resolve_by_fingerprint(self, issue_id: str) -> int:
+        """将指定指纹的所有未解决事件标记为已解决"""
+        now = time.time()
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            UPDATE incidents SET resolved = 1, updated_at = ?
+            WHERE issue_id = ? AND resolved = 0
+        """, (now, issue_id))
+        self._conn.commit()
+        count = cursor.rowcount
+        if count > 0:
+            logger.info("事件已自动解决: issue_id=%s, 共%d条", issue_id, count)
+        return count
+
+    def resolve_batch(self, issue_ids: list) -> int:
+        """批量解决事件"""
+        if not issue_ids:
+            return 0
+        now = time.time()
+        cursor = self._conn.cursor()
+        placeholders = ",".join("?" * len(issue_ids))
+        cursor.execute(f"""
+            UPDATE incidents SET resolved = 1, updated_at = ?
+            WHERE issue_id IN ({placeholders}) AND resolved = 0
+        """, [now] + issue_ids)
+        self._conn.commit()
+        return cursor.rowcount
+
+    def mark_resolved(self, incident_id: int) -> bool:
+        """手动标记单个事件为已解决"""
+        now = time.time()
+        cursor = self._conn.cursor()
+        cursor.execute("""
+            UPDATE incidents SET resolved = 1, updated_at = ?
+            WHERE id = ?
+        """, (now, incident_id))
+        self._conn.commit()
+        return cursor.rowcount > 0
+
     def query_similar(self, issue_type: str, keywords: Optional[List[str]] = None) -> List[dict]:
         """查询相似的历史事件
 
