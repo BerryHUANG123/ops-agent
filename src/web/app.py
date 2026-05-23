@@ -130,6 +130,11 @@ def create_app() -> Flask:
             return "报告不存在", 404
         return report_path.read_text(encoding="utf-8")
 
+    @app.route("/health")
+    def health_page():
+        """健康状态页面"""
+        return render_template("health.html", server_name=_get_server_name())
+
     @app.route("/audit")
     def audit():
         """审计日志"""
@@ -175,6 +180,48 @@ def create_app() -> Flask:
             config_yaml=yaml.dump(cfg, allow_unicode=True, default_flow_style=False),
             server_name=_get_server_name(),
         )
+
+    @app.route("/api/health")
+    def api_health():
+        """API: OpsAgent 自身健康状态"""
+        import psutil as _psutil
+        agent_proc = None
+        web_proc = None
+        for proc in _psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                cmdline = ' '.join(proc.info.get('cmdline') or [])
+                if 'src.main' in cmdline and 'python' in cmdline:
+                    agent_proc = proc
+                elif 'src.web.run' in cmdline and 'python' in cmdline:
+                    web_proc = proc
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+
+        def proc_info(proc):
+            if not proc:
+                return {"running": False}
+            try:
+                mem = proc.memory_info()
+                return {
+                    "running": True,
+                    "pid": proc.pid,
+                    "memory_mb": round(mem.rss / 1024 / 1024, 1),
+                    "cpu_percent": proc.cpu_percent(interval=0.1),
+                    "uptime_seconds": round(time.time() - proc.create_time(), 0),
+                }
+            except Exception:
+                return {"running": True, "pid": proc.pid}
+
+        return jsonify({
+            "agent": proc_info(agent_proc),
+            "web": proc_info(web_proc),
+            "system": {
+                "cpu_percent": psutil.cpu_percent(interval=0.3),
+                "memory_percent": psutil.virtual_memory().percent,
+                "disk_percent": psutil.disk_usage('/').percent,
+            },
+            "timestamp": datetime.now().isoformat(),
+        })
 
     @app.route("/api/metrics")
     def api_metrics():

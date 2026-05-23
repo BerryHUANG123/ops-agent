@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}健康状态 - OpsAgent{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>💚 健康状态</h1>
+    <div class="time">OpsAgent 自身监控</div>
+</div>
+
+<div class="metrics-grid" id="healthGrid">
+    <div class="metric-card">
+        <div class="label">Agent 进程</div>
+        <div class="value color-normal" id="agentStatus">检测中...</div>
+        <div class="sub" id="agentSub"></div>
+    </div>
+    <div class="metric-card">
+        <div class="label">Web UI 进程</div>
+        <div class="value color-normal" id="webStatus">检测中...</div>
+        <div class="sub" id="webSub"></div>
+    </div>
+    <div class="metric-card">
+        <div class="label">Agent 内存</div>
+        <div class="value" id="agentMem">-</div>
+        <div class="sub">MB</div>
+        <div class="bar"><div class="bar-fill bg-normal" id="agentMemBar" style="width:0%"></div></div>
+    </div>
+    <div class="metric-card">
+        <div class="label">Agent CPU</div>
+        <div class="value" id="agentCpu">-</div>
+        <div class="sub">%</div>
+        <div class="bar"><div class="bar-fill bg-normal" id="agentCpuBar" style="width:0%"></div></div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>🖥️ 系统资源</h2>
+    <div class="metrics-grid" style="margin-bottom: 0;">
+        <div class="metric-card">
+            <div class="label">CPU</div>
+            <div class="value" id="sysCpu">-</div>
+            <div class="sub">%</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">内存</div>
+            <div class="value" id="sysMem">-</div>
+            <div class="sub">%</div>
+        </div>
+        <div class="metric-card">
+            <div class="label">磁盘</div>
+            <div class="value" id="sysDisk">-</div>
+            <div class="sub">%</div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function loadHealth() {
+    try {
+        const res = await fetch('/api/health');
+        const data = await res.json();
+
+        // Agent
+        const a = data.agent;
+        document.getElementById('agentStatus').textContent = a.running ? '✅ 运行中' : '❌ 未运行';
+        document.getElementById('agentStatus').className = 'value ' + (a.running ? 'color-normal' : 'color-critical');
+        document.getElementById('agentSub').textContent = a.running ? `PID ${a.pid} · 运行 ${Math.floor(a.uptime_seconds/3600)}h` : '';
+
+        // Web
+        const w = data.web;
+        document.getElementById('webStatus').textContent = w.running ? '✅ 运行中' : '❌ 未运行';
+        document.getElementById('webStatus').className = 'value ' + (w.running ? 'color-normal' : 'color-critical');
+        document.getElementById('webSub').textContent = w.running ? `PID ${w.pid}` : '';
+
+        // Agent metrics
+        if (a.memory_mb) {
+            const mem = a.memory_mb;
+            document.getElementById('agentMem').textContent = mem;
+            const pct = Math.min(mem / 256 * 100, 100);
+            document.getElementById('agentMemBar').style.width = pct + '%';
+            document.getElementById('agentMemBar').className = 'bar-fill ' + (pct > 80 ? 'bg-critical' : pct > 50 ? 'bg-warning' : 'bg-normal');
+        }
+        if (a.cpu_percent !== undefined) {
+            document.getElementById('agentCpu').textContent = a.cpu_percent;
+            document.getElementById('agentCpuBar').style.width = Math.min(a.cpu_percent, 100) + '%';
+            document.getElementById('agentCpuBar').className = 'bar-fill ' + (a.cpu_percent > 80 ? 'bg-critical' : a.cpu_percent > 50 ? 'bg-warning' : 'bg-normal');
+        }
+
+        // System
+        document.getElementById('sysCpu').textContent = data.system.cpu_percent;
+        document.getElementById('sysMem').textContent = data.system.memory_percent;
+        document.getElementById('sysDisk').textContent = data.system.disk_percent;
+    } catch (e) {
+        document.getElementById('agentStatus').textContent = '⚠️ 检测失败';
+    }
+}
+loadHealth();
+setInterval(loadHealth, 15000);
+</script>
+{% endblock %}

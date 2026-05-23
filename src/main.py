@@ -444,6 +444,36 @@ class OpsAgent:
         elapsed = time.time() - start_time
         logger.info("----- 检查周期 #%d 完成，耗时 %.1fs -----", self._check_count + 1, elapsed)
 
+        # 自身健康检查（每10个周期检查一次）
+        if self._check_count % 10 == 0:
+            self._self_health_check()
+
+    def _self_health_check(self) -> None:
+        """检查 OpsAgent 自身健康状态"""
+        try:
+            import psutil
+            proc = psutil.Process()
+            mem_mb = proc.memory_info().rss / 1024 / 1024
+            cpu = proc.cpu_percent(interval=0.5)
+
+            if mem_mb > 200:
+                logger.warning("⚠️ OpsAgent 内存过高: %.1fMB (阈值200MB)", mem_mb)
+            if cpu > 80:
+                logger.warning("⚠️ OpsAgent CPU 过高: %.1f%% (阈值80%%)", cpu)
+
+            # 检查系统资源
+            sys_mem = psutil.virtual_memory().percent
+            sys_disk = psutil.disk_usage('/').percent
+            if sys_mem > 95:
+                logger.warning("⚠️ 系统内存危急: %.1f%%", sys_mem)
+            if sys_disk > 95:
+                logger.warning("⚠️ 系统磁盘危急: %.1f%%", sys_disk)
+
+            logger.debug("自检: 内存=%.1fMB, CPU=%.1f%%, 系统内存=%.1f%%, 磁盘=%.1f%%",
+                        mem_mb, cpu, sys_mem, sys_disk)
+        except Exception as e:
+            logger.debug("自检失败: %s", e)
+
     def _record_incidents(
         self,
         issues: list,
