@@ -2,6 +2,9 @@
 
 > 无人值守运维监控智能体：数据感知、故障推理、自动处置、报表输出
 
+> 🚀 **在线演示**: https://treasure-lion-consequences-leads.trycloudflare.com/
+> 账号: `admin` / 密码: `qq119110+`
+
 ## 核心能力一览
 
 | 模块 | 功能 | 说明 |
@@ -348,6 +351,173 @@ ops-agent/
 └── requirements.txt
 ```
 
+## 快速部署
+
+### 环境要求
+
+- Python 3.10+
+- Linux（Ubuntu/Debian/CentOS）
+- sudo 权限（SMART 监控需要）
+
+### 一键安装
+
+```bash
+# 1. 克隆项目
+git clone <repo-url> /opt/ops-agent
+cd /opt/ops-agent
+
+# 2. 安装依赖
+pip install -r requirements.txt
+
+# 3. 创建数据目录
+mkdir -p data reports
+
+# 4. 启动服务
+python3 -m src.main &           # Agent 后台巡检
+python3 -m src.web.run --port 8080 &  # Web UI
+
+# 5. 访问
+# http://localhost:8080
+# 默认账号: admin / qq119110+
+```
+
+### systemd 服务部署（推荐）
+
+```bash
+# 安装服务
+./scripts/setup_service.sh
+
+# 常用命令
+systemctl --user status ops-agent       # 查看 Agent 状态
+systemctl --user status ops-agent-web   # 查看 Web UI 状态
+systemctl --user restart ops-agent-web  # 重启 Web UI
+journalctl --user -u ops-agent-web -f   # 查看日志
+```
+
+### 迁移到其他机器
+
+```bash
+# 在源机器打包（不需要历史数据）
+./scripts/migrate.sh
+
+# 在目标机器安装
+tar xzf /tmp/ops-agent-*.tar.gz
+cd ops-agent
+./scripts/setup.sh
+```
+
+### 项目结构
+
+```
+ops-agent/
+├── src/
+│   ├── main.py                  # Agent 主入口（采集→检测→分析→处置）
+│   ├── models.py                # 数据模型
+│   ├── collectors/              # 数据采集器
+│   │   ├── system_collector.py  # CPU/内存/磁盘/负载
+│   │   ├── log_collector.py     # 日志错误检测
+│   │   ├── docker_collector.py  # Docker 容器监控
+│   │   ├── journal_collector.py # systemd journal
+│   │   ├── smart_collector.py   # 磁盘 SMART
+│   │   └── network_collector.py # 网络连接监控
+│   ├── detectors/               # 异常检测
+│   │   ├── anomaly_detector.py  # 静态阈值 + 自适应阈值
+│   │   └── adaptive_threshold.py
+│   ├── analyzers/               # 故障分析
+│   │   ├── fault_analyzer.py    # 规则引擎
+│   │   └── llm_analyzer.py      # LLM 智能分析
+│   ├── remediators/             # 自动处置
+│   │   └── auto_remediator.py
+│   ├── reporters/               # 报表生成
+│   │   └── report_generator.py
+│   ├── notifiers/               # 告警通知
+│   │   ├── feishu_notifier.py   # 飞书 Webhook
+│   │   └── email_notifier.py    # 邮件通知
+│   ├── memory/                  # 事件记忆
+│   │   └── incident_memory.py
+│   ├── incidents/               # 事件生命周期管理
+│   │   └── incident_manager.py
+│   ├── trackers/                # 变更追踪
+│   │   └── change_tracker.py
+│   ├── slo/                     # SLO 管理
+│   │   ├── slo_manager.py
+│   │   ├── sli_collectors.py
+│   │   └── error_budget.py
+│   ├── scheduler/               # 定时报表
+│   │   └── report_scheduler.py
+│   └── web/                     # Web UI
+│       ├── app.py               # Flask 应用 + API
+│       ├── run.py               # 启动入口
+│       ├── templates/           # Jinja2 模板
+│       │   ├── base.html        # 布局（侧边栏/主题/公共组件）
+│       │   ├── dashboard.html   # 仪表盘（概览/资源/服务 tab）
+│       │   ├── health.html      # 健康状态
+│       │   ├── incidents_v2.html # 事件管理（搜索/筛选/时间线）
+│       │   ├── slo.html         # SLO 管理（在线编辑）
+│       │   ├── changes.html     # 变更记录
+│       │   ├── config.html      # 配置编辑器（yaml 实时校验）
+│       │   ├── reports.html     # 巡检报告（一键生成/对比）
+│       │   ├── audit.html       # 审计日志
+│       │   └── login.html       # 登录页
+│       └── static/              # 静态资源
+│           ├── themes.css       # 6 套主题
+│           ├── chart.umd.min.js # Chart.js
+│           └── favicon.svg
+├── config/
+│   └── default.yaml             # 主配置文件
+├── runbooks/                    # 处理手册（每个告警类型）
+│   ├── cpu_high.md
+│   ├── memory_high.md
+│   ├── disk_high.md
+│   ├── load_high.md
+│   ├── service_down.md
+│   ├── log_error.md
+│   └── disk_smart.md
+├── scripts/
+│   ├── install.sh               # 一键安装
+│   ├── setup_service.sh         # systemd 服务安装
+│   ├── setup.sh                 # 目标机器安装向导
+│   └── migrate.sh               # 迁移打包脚本
+├── reports/                     # 报表输出目录
+├── data/                        # SQLite 数据存储
+├── docs/                        # 项目文档
+├── requirements.txt             # Python 依赖
+└── README.md
+```
+
+### 配置说明
+
+配置文件: `config/default.yaml`
+
+```yaml
+server:
+  name: "my-server"
+  check_interval: 60  # 巡检间隔（秒）
+
+# 告警阈值
+collectors:
+  cpu_threshold: 85
+  memory_threshold: 90
+  disk_threshold: 85
+
+# 监控服务
+services:
+  watch:
+    - name: sshd
+      process: sshd
+    - name: docker
+      process: dockerd
+
+# SLO 目标
+slo:
+  enabled: true
+  services:
+    - name: sshd
+      sli_type: uptime
+      target: 99.9
+      window_days: 30
+```
+
 ## 技术栈
 
 - Python 3.10+
@@ -355,7 +525,46 @@ ops-agent/
 - SQLite — 事件存储（Python 内置，无需额外服务）
 - Jinja2 — 报表模板渲染
 - PyYAML — 配置管理
-- Flask — Web UI
+- Flask + Flask-SocketIO — Web UI + WebSocket
+- Chart.js — 趋势图表
 - systemd — 服务管理
 - smartmontools — SMART 磁盘监控
-- cloudflared — 公网穿透
+
+## Web UI 功能
+
+| 页面 | 功能 |
+|------|------|
+| 仪表盘 | 健康状态 Banner + 系统指标 + CPU/内存/磁盘趋势 + SLO + 告警 |
+| 健康状态 | Agent 进程/内存/CPU + 系统资源 + 端口/连接/进程 Top N |
+| 事件管理 | 搜索/筛选 + 级别分级 + 时间线 + Runbook 处理手册 |
+| SLO 管理 | 在线编辑目标值 + Error Budget 趋势图 |
+| 变更记录 | 配置变更追踪 + yaml diff 对比 |
+| 配置 | yaml 在线编辑器 + 实时语法校验 + Ctrl+S 保存 |
+| 巡检报告 | 一键生成 + 两份报告 diff 对比 |
+| 审计日志 | 操作记录查询 |
+
+## 运维命令速查
+
+```bash
+# 服务管理
+systemctl --user start ops-agent ops-agent-web
+systemctl --user stop ops-agent ops-agent-web
+systemctl --user restart ops-agent-web
+
+# 查看日志
+journalctl --user -u ops-agent -f           # Agent 日志
+journalctl --user -u ops-agent-web -f       # Web UI 日志
+
+# 手动生成报告
+python3 -m src.main --report-only
+
+# 只执行一次巡检
+python3 -m src.main --once
+
+# 只执行 SLO 检查
+python3 -m src.main --slo-check
+
+# 查看数据库
+sqlite3 data/ops_agent.db ".tables"
+sqlite3 data/ops_agent.db "SELECT * FROM incidents_v2 ORDER BY created_at DESC LIMIT 10;"
+```
