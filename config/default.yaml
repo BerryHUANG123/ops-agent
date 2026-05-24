@@ -53,15 +53,65 @@ remediation:
     - /tmp/ops-agent-*
 
 report:
-  output_dir: /home/huangjinyang/.openclaw/workspace/ops-agent/reports
+  output_dir: reports
   format: html
   keep_days: 30
   schedule: ""        # 每日定时生成，格式 "HH:MM"，如 "08:00"，留空则按 interval
   interval_minutes: 1440  # 间隔生成（默认每天一次）
 
 memory:
-  db_path: /home/huangjinyang/.openclaw/workspace/ops-agent/data/ops_agent.db
+  db_path: data/ops_agent.db
   max_records: 10000
+
+# ===== SLO 管理 =====
+slo:
+  enabled: true
+  check_interval_seconds: 300  # 每 5 分钟采集一次 SLI（可独立于主巡检周期）
+  services:
+    - name: sshd
+      sli_type: uptime          # uptime | http | log_error
+      target: 99.9              # 月可用性 99.9%
+      window_days: 30           # 30 天滚动窗口
+      process: sshd             # uptime 类型检查的进程名
+
+    - name: redis
+      sli_type: uptime
+      target: 99.9
+      window_days: 30
+      process: redis-server
+    - name: cloudflared
+      sli_type: uptime
+      target: 99.5
+      window_days: 30
+      process: cloudflared
+
+# ===== 事件生命周期管理 =====
+incident_management:
+  enabled: true
+  auto_escalate: true           # 启用自动升级
+  escalation_rules:
+    P0: 900                     # 15 分钟未确认 → 升级
+    P1: 1800                    # 30 分钟未确认 → 升级
+    P2: 7200                    # 2 小时未确认 → 升级
+
+# ===== On-call 值班 =====
+oncall:
+  enabled: true
+  primary:
+    name: "老板"
+    phone: ""
+    email: ""
+    feishu_id: "ou_370b5dcabbeffcb987993cda8fb2dbc7"
+  backup:
+    name: ""
+    phone: ""
+    email: ""
+  # 升级链：P0 先找 primary，超时找 backup
+  escalation_chain:
+    - role: primary
+      timeout_minutes: 15
+    - role: backup
+      timeout_minutes: 30
 
 # ===== 告警通知 =====
 notifier:
@@ -116,7 +166,7 @@ webui:
     secret_key: "ops-agent-secret-key-change-me"
     users:
       admin:
-        password: "qq119110+"  # 已改强密码
+        password: "424709"  # 公开演示密码
         role: "admin"           # admin = 全部权限, viewer = 只读
       guest:
         password: "guest"

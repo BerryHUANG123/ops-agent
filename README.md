@@ -3,7 +3,7 @@
 > 无人值守运维监控智能体：数据感知、故障推理、自动处置、报表输出
 
 > 🚀 **在线演示**: https://treasure-lion-consequences-leads.trycloudflare.com/
-> 账号: `admin` / 密码: `qq119110+`
+> 账号: `admin` / 密码: `424709`
 
 ## 核心能力一览
 
@@ -378,7 +378,7 @@ python3 -m src.web.run --port 8080 &  # Web UI
 
 # 5. 访问
 # http://localhost:8080
-# 默认账号: admin / qq119110+
+# 默认账号: admin / 424709
 ```
 
 ### systemd 服务部署（推荐）
